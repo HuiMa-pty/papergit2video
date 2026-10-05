@@ -1,6 +1,8 @@
 {
   "name": "papergit2video",
-  "owner": { "name": "papergit2video contributors" },
+  "owner": {
+    "name": "HuiMa-pty"
+  },
   "plugins": [
     {
       "name": "papergit2video",
@@ -9,5 +11,8 @@
       "version": "1.0.0",
       "category": "productivity"
     }
-  ]
+  ],
+  "metadata": {
+    "description": "Turn research papers and GitHub repos into narrated explainer videos."
+  }
 }

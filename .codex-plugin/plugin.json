@@ -3,10 +3,26 @@
   "version": "1.0.0",
   "description": "Turn research papers and GitHub repos into narrated explainer videos or interactive one-page explainers. Local TTS, no API keys, CUDA auto-detected.",
   "license": "MIT",
-  "keywords": ["explainer-video", "paper", "arxiv", "github", "code", "tts", "kokoro", "education", "video"],
+  "keywords": [
+    "explainer-video",
+    "paper",
+    "arxiv",
+    "github",
+    "code",
+    "tts",
+    "kokoro",
+    "education",
+    "video"
+  ],
   "skills": "./skills/",
   "interface": {
     "displayName": "papergit2video",
     "shortDescription": "Turn research papers and GitHub repos into narrated explainer videos"
+  },
+  "homepage": "https://github.com/HuiMa-pty/papergit2video",
+  "repository": "https://github.com/HuiMa-pty/papergit2video",
+  "author": {
+    "name": "HuiMa-pty",
+    "url": "https://github.com/HuiMa-pty"
   }
 }

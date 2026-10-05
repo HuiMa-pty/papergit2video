@@ -29,36 +29,36 @@ Pick your app. Every option installs the same skill.
 ### Claude Code: CLI, and the Code tab in the Claude desktop app
 
 ```text
-/plugin marketplace add OWNER/papergit2video
+/plugin marketplace add HuiMa-pty/papergit2video
 /plugin install papergit2video@papergit2video
 ```
 
 ### Codex: CLI, desktop app and IDE extension
 
 ```bash
-codex plugin marketplace add OWNER/papergit2video
+codex plugin marketplace add HuiMa-pty/papergit2video
 codex plugin add papergit2video@papergit2video
 ```
 
-In the Codex desktop app, open **Plugins**, add the marketplace `OWNER/papergit2video`, and install **papergit2video**.
+In the Codex desktop app, open **Plugins**, add the marketplace `HuiMa-pty/papergit2video`, and install **papergit2video**.
 
 ### Cursor: editor and `cursor-agent`
 
-- **Editor:** Settings → **Plugins** → **Import**, then paste `https://github.com/OWNER/papergit2video`.
-- **CLI:** run `cursor-agent plugin marketplace add https://github.com/OWNER/papergit2video`, then type `/plugin` in `cursor-agent` and install it from the **Marketplace** tab.
+- **Editor:** Settings → **Plugins** → **Import**, then paste `https://github.com/HuiMa-pty/papergit2video`.
+- **CLI:** run `cursor-agent plugin marketplace add https://github.com/HuiMa-pty/papergit2video`, then type `/plugin` in `cursor-agent` and install it from the **Marketplace** tab.
 
 ### Claude desktop and web app (chat)
 
-Download `papergit2video.zip` from the [latest release](https://github.com/OWNER/papergit2video/releases/latest), then go to **Settings → Capabilities → Skills → Upload skill**.
+Download `papergit2video.zip` from the [latest release](https://github.com/HuiMa-pty/papergit2video/releases/latest), then go to **Settings → Capabilities → Skills → Upload skill**.
 
 > Chat skills run in Claude's cloud sandbox. That sandbox has no GPU, and it may not be able to download the voice model, a browser or ffmpeg, so full video rendering may not work there. For videos, use Claude Code (CLI or the desktop app's Code tab), Codex or Cursor, which run on your machine.
 
 ### Any other agent, or a manual install
 
 ```bash
-npx skills add OWNER/papergit2video          # interactive installer for most coding agents
+npx skills add HuiMa-pty/papergit2video          # interactive installer for most coding agents
 # or copy the skill folder yourself:
-git clone https://github.com/OWNER/papergit2video
+git clone https://github.com/HuiMa-pty/papergit2video
 cp -r papergit2video/skills/papergit2video ~/.claude/skills/    # Codex: ~/.codex/skills/  Cursor: ~/.cursor/skills/
 ```
 
