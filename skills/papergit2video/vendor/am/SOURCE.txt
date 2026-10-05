@@ -1,0 +1,13 @@
+Vendored `am` renderer, version 0.4.6, MIT licensed (copyright notice and license: LICENSE in
+this folder). Vendored so the skill needs no separate install. Pinned: it never checks for updates.
+
+Local patches, marked "papergit2video patch" in am.mjs:
+- Parallel MP4 export: exportMp4 is replaced by openPlayer / runFfmpeg / encoderArgs /
+  renderRange, plus an `availableParallelism` import from node:os. Env knobs: AM_EXPORT_WORKERS,
+  AM_EXPORT_FPS, AM_EXPORT_PRESET, AM_EXPORT_ENCODER (libx264 | h264_nvenc), AM_CHROME_FLAGS,
+  AM_EXPORT_KEEP. The mux uses -t instead of -shortest (which dropped the last frames).
+- Layout (VIDEO_JS / VIDEO_CSS): scenes fit inside .amv-body (y 160..850, 1600x650 content box),
+  which ends above the two-line subtitle box. .amv-fit is widened to its real content width
+  before scaling, so wide diagrams get equal left and right margins. The camera SAFE box matches.
+- Output credit: OUTPUT_BRAND (AM_BRAND, default "Paper Explainer").
+- Default data folder: ~/.papergit2video/am. Update checks are disabled.

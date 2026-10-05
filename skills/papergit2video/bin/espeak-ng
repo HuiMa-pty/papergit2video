@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Shadows the real espeak-ng on PATH during `am video`, routing narration to Kokoro.
+# Uses the warm tts_server.py when render.sh started one; otherwise runs a one-shot synthesis.
+HOME_DIR="${PAPER_VIDEO_HOME:-$HOME/.papergit2video}"
+SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PY="$HOME_DIR/tts/.venv/bin/python"
+export HF_HOME="$HOME_DIR/tts/hf" PYTHONDONTWRITEBYTECODE=1
+
+if [[ -n "${PAPER_VIDEO_TTS_SOCKET:-}" && -S "$PAPER_VIDEO_TTS_SOCKET" ]]; then
+    exec "$PY" - "$@" <<'PYCLIENT'
+import argparse, json, os, socket, sys
+p = argparse.ArgumentParser()
+p.add_argument("-v", default="en-us"); p.add_argument("-w", required=True); p.add_argument("-f", required=True)
+a = p.parse_args()
+req = {"lang": a.v, "text": open(a.f, encoding="utf-8").read().strip(), "out": os.path.abspath(a.w)}
+s = socket.socket(socket.AF_UNIX); s.connect(os.environ["PAPER_VIDEO_TTS_SOCKET"])
+s.sendall((json.dumps(req) + "\n").encode())
+reply = s.makefile().readline().strip()
+sys.exit(0 if reply == "ok" else f"tts server: {reply}")
+PYCLIENT
+fi
+
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-2}"
+exec "$PY" "$SKILL_DIR/scripts/kokoro_tts.py" "$@" 2>>"$HOME_DIR/tts/tts.log"

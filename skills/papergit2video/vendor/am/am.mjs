@@ -1,0 +1,6255 @@
+#!/usr/bin/env node
+// am CLI, vendored and patched for papergit2video (see SOURCE.txt and LICENSE in this folder).
+
+// src/cli.js
+import { parseArgs } from "node:util";
+import { readFileSync as readFileSync4, writeFileSync as writeFileSync5, mkdirSync as mkdirSync4 } from "node:fs";
+
+// src/assets.js
+var VERSION = "0.4.6";
+// paper-explainer-video patch: neutral, configurable credit in rendered pages and videos.
+var OUTPUT_BRAND = process.env.AM_BRAND || "Paper Explainer";
+var BASE_CSS = '/* base \u2014 \u53EA\u5F15\u7528\u4E3B\u9898\u53D8\u91CF\uFF0C\u7981\u6B62\u5199\u6B7B\u989C\u8272\uFF08\u4E3B\u9898 token \u89C1 themes/index.js\uFF09 */\n*, *::before, *::after { box-sizing: border-box; }\nhtml, body { margin: 0; padding: 0; }\nbody {\n  background: var(--bg); color: var(--ink);\n  font-family: var(--font-sans); font-size: 14px; line-height: 1.55;\n  -webkit-font-smoothing: antialiased;\n}\ncode, pre, kbd { font-family: var(--font-mono); }\n\n/* \u2500\u2500 \u5DE5\u5177\u680F \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-toolbar {\n  position: fixed; top: 12px; right: 12px; z-index: 10; display: flex; gap: 6px;\n}\n.am-btn {\n  font: 12px/1 var(--font-sans); color: var(--ink); background: var(--paper);\n  border: 1px solid var(--line-2); border-radius: var(--radius); padding: 7px 10px; cursor: pointer;\n}\n.am-btn:hover { border-color: var(--ink-3); }\n.am-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }\n\n/* \u2500\u2500 \u9875\u5934 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-head { margin: 0 0 20px; padding-right: 260px; }\n.am-head h1 { margin: 0; font-size: 24px; line-height: 1.25; letter-spacing: -0.01em; }\n.am-sub { margin: 4px 0 0; color: var(--ink-2); }\n.am-head-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; font-size: 12px; color: var(--ink-2); }\n.am-head-meta b { font-family: var(--font-mono); font-weight: 400; color: var(--ink-3); margin-right: 6px; }\n.am-intro { margin-top: 12px; max-width: 80ch; }\n\n/* \u2500\u2500 sheet \u56FE\u7EB8\u677F \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-sheet { max-width: 1680px; margin: 0 auto; padding: 32px 28px 40px; }\n.am-frame { position: relative; }\n.am-grid {\n  display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));\n  gap: 20px; align-items: start;\n}\n.am-ruler { display: none; }\nhtml[data-theme="blueprint"] .am-frame { border: 1px solid var(--line); padding: 30px; }\nhtml[data-theme="blueprint"] .am-frame::before {\n  content: ""; position: absolute; inset: 18px; border: 1px solid var(--line); pointer-events: none;\n}\nhtml[data-theme="blueprint"] .am-ruler {\n  display: flex; position: absolute; font: 10px/1 var(--font-mono); color: var(--ink-3);\n}\n.am-ruler span { flex: 1; display: flex; align-items: center; justify-content: center; }\n.am-ruler--top, .am-ruler--bottom { left: 18px; right: 18px; height: 18px; }\n.am-ruler--top { top: 0; }\n.am-ruler--bottom { bottom: 0; }\n.am-ruler--left, .am-ruler--right { top: 18px; bottom: 18px; width: 18px; flex-direction: column; }\n.am-ruler--left { left: 0; }\n.am-ruler--right { right: 0; }\n.am-ruler--top span + span, .am-ruler--bottom span + span { border-left: 1px solid var(--line); }\n.am-ruler--left span + span, .am-ruler--right span + span { border-top: 1px solid var(--line); }\n\n/* \u2500\u2500 \u9762\u677F \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-panel {\n  background: var(--paper); border: var(--bw) solid var(--line); border-radius: var(--radius);\n  box-shadow: var(--shadow); min-width: 0; overflow: hidden;\n}\n.am-panel-head {\n  display: flex; align-items: stretch; gap: 0; border-bottom: var(--bw) solid var(--line); min-height: 34px;\n}\n.am-panel-id {\n  display: flex; align-items: center; justify-content: center; min-width: 34px; padding: 0 8px;\n  background: var(--head-bg); color: var(--head-fg); font-weight: 600; font-size: 14px;\n}\nhtml[data-theme="shadcn"] .am-panel-id { border-radius: 6px; min-width: 24px; height: 24px; margin: 9px 0 9px 14px; font-size: 12px; }\nhtml[data-theme="shadcn"] .am-panel-head { border-bottom-width: 1px; }\n.am-panel-head h2 { margin: 0; padding: 7px 12px; font-size: 15px; font-weight: 600; flex: 1; display: flex; align-items: center; }\n.am-panel-meta { align-self: center; padding: 0 12px; font: 11px/1.3 var(--font-mono); color: var(--ink-2); text-align: right; }\n.am-panel-body { padding: 14px 16px 16px; }\n.am-panel-body > * + * { margin-top: 12px; }\n\n/* \u2500\u2500 Markdown \u6B63\u6587 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-md > :first-child { margin-top: 0; }\n.am-md > :last-child { margin-bottom: 0; }\n.am-md p { margin: 0 0 8px; }\n.am-md ul, .am-md ol { margin: 0 0 8px; padding-left: 20px; }\n.am-md li + li { margin-top: 3px; }\n.am-md h3, .am-md h4 { margin: 14px 0 6px; font-size: 13px; }\n.am-md a { color: var(--accent); }\n.am-md blockquote { margin: 0 0 8px; padding: 2px 12px; border-left: 3px solid var(--line-2); color: var(--ink-2); }\n.am-md :not(pre) > code { font-size: 0.9em; background: var(--fill); padding: 1px 5px; border-radius: 4px; }\n.am-md hr { border: 0; border-top: 1px solid var(--line-2); margin: 12px 0; }\n.am-md table { width: 100%; border-collapse: collapse; font-size: 13px; }\n.am-md th {\n  text-align: left; font: 11px/1.3 var(--font-mono); color: var(--ink-2); font-weight: 400;\n  padding: 6px 10px; border-bottom: 1px solid var(--line-2);\n}\n.am-md td { padding: 7px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }\n.am-md tbody tr:nth-child(even) td { background: var(--fill); }\n.am-table-wrap { overflow-x: auto; }\n.am-code {\n  margin: 0; padding: 12px 14px; background: var(--fill); border: 1px solid var(--line-2);\n  border-radius: var(--radius); overflow-x: auto; font-size: 12.5px; line-height: 1.5;\n}\n\n/* \u2500\u2500 \u72B6\u6001\u5FBD\u7AE0 ok / no / warn \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-status { white-space: nowrap; font-weight: 500; }\n.am-status--ok { color: var(--ok); }\n.am-status--no { color: var(--err); }\n.am-status--warn { color: var(--warn); }\n.am-status-icon { display: inline-block; width: 1.1em; font-weight: 700; }\n\n/* \u2500\u2500 callout \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-callout {\n  border: 1px solid var(--line-2); border-left: 3px solid var(--accent); background: var(--accent-bg);\n  padding: 10px 14px; border-radius: var(--radius);\n}\n.am-callout--ok { border-left-color: var(--ok); background: var(--ok-bg); }\n.am-callout--warn { border-left-color: var(--warn); background: var(--warn-bg); }\n.am-callout--err { border-left-color: var(--err); background: var(--err-bg); }\n.am-callout-title { font-weight: 600; margin-bottom: 4px; }\n\n/* \u2500\u2500 kv \u6807\u9898\u680F\u683C \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-kv {\n  display: grid; grid-template-columns: repeat(var(--kv-cols, 2), minmax(0, 1fr)); margin: 0;\n  border-top: var(--bw) solid var(--line); border-left: var(--bw) solid var(--line);\n}\n.am-kv-cell { border-right: var(--bw) solid var(--line); border-bottom: var(--bw) solid var(--line); padding: 6px 10px 8px; min-width: 0; }\n.am-kv-cell--wide { grid-column: 1 / -1; }\n.am-kv dt { font: 11px/1.4 var(--font-mono); color: var(--ink-2); }\n.am-kv dd { margin: 2px 0 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }\n.am-kv-cell--wide dd { font-size: 17px; font-weight: 600; }\nhtml[data-theme="shadcn"] .am-kv { border-color: var(--line); border-radius: var(--radius); overflow: hidden; }\n\n/* \u2500\u2500 timeline \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-timeline { list-style: none; margin: 0; padding: 0; }\n.am-timeline--h { display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); padding-top: 4px; }\n.am-timeline--h li { position: relative; text-align: center; padding: 0 6px; }\n.am-timeline--h li::before {\n  content: ""; position: absolute; top: 31px; left: 0; right: 0; border-top: var(--bw) solid var(--line);\n}\n.am-timeline--h li:first-child::before { left: 50%; }\n.am-timeline--h li:last-child::before { right: 50%; }\n.am-tl-when { display: block; font-size: 15px; font-weight: 500; height: 24px; }\n.am-tl-dot {\n  position: relative; display: block; width: 11px; height: 11px; margin: 2px auto 8px;\n  border: var(--bw) solid var(--line); border-radius: 50%; background: var(--paper);\n}\n.am-tl-item--hi .am-tl-dot { background: var(--accent); border-color: var(--accent); }\n.am-tl-title { display: block; font-size: 12.5px; font-weight: 500; }\n.am-tl-text { display: block; font-size: 12px; color: var(--ink-2); line-height: 1.45; }\n.am-timeline--v li { position: relative; padding: 0 0 14px 22px; }\n.am-timeline--v li::before { content: ""; position: absolute; left: 5px; top: 6px; bottom: -6px; border-left: var(--bw) solid var(--line-2); }\n.am-timeline--v li:last-child::before { display: none; }\n.am-timeline--v .am-tl-dot { position: absolute; left: 0; top: 4px; margin: 0; }\n.am-timeline--v .am-tl-when { display: inline; height: auto; font: 12px var(--font-mono); color: var(--ink-2); margin-right: 8px; }\n.am-timeline--v .am-tl-title { display: inline; font-size: 14px; }\n.am-timeline--v .am-tl-text { margin-top: 2px; }\n\n/* \u2500\u2500 annot \u53E5\u5B50\u6807\u6CE8 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-annot + .am-annot { border-top: 1px solid var(--line-2); padding-top: 12px; }\n.am-annot-head { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 600; margin-bottom: 8px; }\n.am-annot-meta { font: 11px var(--font-mono); font-weight: 400; color: var(--ink-2); }\n.am-annot-scroll { overflow-x: auto; }\n.am-annot-line {\n  position: relative; display: inline-block; white-space: pre; font: 14px/1.6 var(--font-mono);\n  padding-bottom: calc(var(--rows, 0) * 17px + 14px);\n}\n.am-annot-line--wrap { display: block; white-space: normal; padding-bottom: 10px; }\n.am-annot-line--wrap .am-seg { white-space: nowrap; }\n.am-seg { position: relative; }\n.am-seg::after {\n  content: ""; position: absolute; left: 1px; right: 1px; top: calc(100% + 1px); height: 5px;\n  border: 1px solid var(--accent); border-top: 0;\n}\n.am-seg-n {\n  position: absolute; left: 0; top: calc(100% + 8px + var(--row, 0) * 17px);\n  font: 11px/16px var(--font-sans); color: var(--accent); white-space: nowrap;\n}\n.am-seg--err { color: var(--err); }\n.am-seg--err::after { border-color: var(--err); }\n.am-seg--err .am-seg-n { color: var(--err); }\n.am-annot-caption { font-size: 12px; color: var(--ink-2); }\n\n/* \u2500\u2500 limits \u9650\u503C\u6761 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-lim + .am-lim { margin-top: 14px; }\n.am-lim-head { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; margin-bottom: 4px; }\n.am-lim-val { font: 12px var(--font-mono); color: var(--accent); white-space: nowrap; }\n.am-lim-track { position: relative; height: 12px; border: 1px solid var(--line-2); background: var(--fill); border-radius: calc(var(--radius) / 2); }\n.am-lim-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent-bg); border-right: 1px solid var(--accent); }\n.am-lim-mark { position: absolute; top: -4px; bottom: -4px; border-left: 2px solid var(--accent); }\n.am-lim.is-over .am-lim-fill { background: var(--err-bg); border-right-color: var(--err); }\n.am-lim.is-over .am-lim-val { color: var(--err); }\n.am-lim-ticks { position: relative; height: 16px; font: 10px/16px var(--font-mono); color: var(--ink-3); }\n.am-lim-ticks span { position: absolute; transform: translateX(-50%); }\n.am-lim-ticks span:first-child { transform: none; }\n.am-lim-note { font-size: 11px; color: var(--ink-2); margin-left: 6px; }\n\n/* \u2500\u2500 tree \u7ED3\u6784\u6811 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-tree { font-size: 13px; }\n.am-tree-root { display: flex; justify-content: center; position: relative; padding-bottom: 18px; }\n.am-tree-root::after { content: ""; position: absolute; bottom: 0; left: 50%; height: 18px; border-left: var(--bw) solid var(--line); }\n.am-tree-root--solo { padding-bottom: 12px; }\n.am-tree-root--solo::after { display: none; }\n.am-tree-box {\n  border: var(--bw) solid var(--line); background: var(--paper); padding: 6px 14px; text-align: center;\n  border-radius: var(--radius); font-weight: 600;\n}\n.am-tree-box small { display: block; font-weight: 400; color: var(--ink-2); font-size: 12px; }\n.am-tree-box--root { background: var(--accent-bg); font-size: 15px; padding: 8px 28px; }\n.am-tree-cols { display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); }\n.am-tree-col { position: relative; padding: 18px 8px 0; min-width: 0; }\n.am-tree-col::before { content: ""; position: absolute; top: 0; left: 0; right: 0; border-top: var(--bw) solid var(--line); }\n.am-tree-col:first-child::before { left: 50%; }\n.am-tree-col:last-child::before { right: 50%; }\n.am-tree-col::after { content: ""; position: absolute; top: 0; left: 50%; height: 18px; border-left: var(--bw) solid var(--line); }\n.am-tree-list, .am-tree-list ul { list-style: none; margin: 0; padding: 0; }\n.am-tree-col > .am-tree-list { margin: 8px 0 0 14px; }\n.am-tree-list ul { margin-left: 16px; }\n.am-tree-list li { position: relative; padding: 3px 0 3px 18px; }\n.am-tree-list li::before { content: ""; position: absolute; left: 0; top: 0.95em; width: 12px; border-top: 1px solid var(--ink-3); }\n.am-tree-list li::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1px solid var(--ink-3); }\n.am-tree-list li:last-child::after { bottom: auto; height: 0.95em; }\n.am-tree-tag { font: 11px var(--font-mono); color: var(--ink-3); margin-right: 4px; }\n.am-tree code { font: 12px var(--font-mono); }\n.am-tree-sub { display: block; font-size: 11.5px; color: var(--ink-2); }\n.am-tree-hi > .am-tree-label { color: var(--accent); font-weight: 600; }\n\n/* \u2500\u2500 \u56FE\uFF08flow / sequence\uFF09\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-diagram { margin: 0; overflow-x: auto; text-align: center; }\n.am-diagram svg { max-width: 100%; height: auto; font-family: var(--font-sans); }\n.am-diagram text { fill: var(--ink); font-size: 13px; }\n.am-node-shape { fill: var(--paper); stroke: var(--line); stroke-width: var(--bw); }\n.am-node--hi .am-node-shape { fill: var(--accent-bg); stroke: var(--accent); }\n.am-node--hi text { fill: var(--accent); font-weight: 600; }\n.am-edge { fill: none; stroke: var(--ink-2); stroke-width: 1.3; }\n.am-edge--dashed { stroke-dasharray: 5 4; }\n.am-arrow { fill: var(--ink-2); }\n.am-edge-label rect { fill: var(--paper); }\n.am-diagram .am-edge-label text { fill: var(--accent); font-size: 11.5px; }\n.am-cluster { fill: var(--fill); stroke: var(--line-2); stroke-width: 1; stroke-dasharray: 4 3; }\n.am-diagram .am-cluster-label { fill: var(--ink-2); font: 11px var(--font-mono); }\n.am-lifeline { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 4 4; }\n.am-actor { fill: var(--paper); stroke: var(--line); stroke-width: var(--bw); }\n.am-note { fill: var(--warn-bg); stroke: var(--warn); stroke-width: 1; }\n.am-diagram .am-step { fill: var(--ink-3); font: 10px var(--font-mono); }\n\n/* \u2500\u2500 doc \u7EBF\u6027\u8BB2\u89E3 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n.am-doc { max-width: 1120px; margin: 0 auto; padding: 40px 28px 64px; }\n.am-doc-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; align-items: start; }\n.am-doc-layout--notoc { grid-template-columns: minmax(0, 1fr); max-width: 860px; }\n.am-toc { position: sticky; top: 24px; font-size: 13px; }\n.am-toc a { display: block; color: var(--ink-2); text-decoration: none; padding: 4px 0 4px 10px; border-left: 2px solid var(--line-2); }\n.am-toc a:hover { color: var(--ink); border-left-color: var(--accent); }\n.am-doc-body > .am-panel + .am-panel { margin-top: 20px; }\n\n/* \u2500\u2500 \u54CD\u5E94\u5F0F\u4E0E\u6253\u5370 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\n@media (max-width: 1100px) {\n  .am-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }\n  .am-grid > .am-panel { grid-column: auto !important; }\n  .am-grid > .am-panel.am-span-wide { grid-column: 1 / -1 !important; }\n}\n@media (max-width: 760px) {\n  .am-sheet, .am-doc { padding: 56px 12px 24px; }\n  .am-head { padding-right: 0; }\n  .am-grid { grid-template-columns: minmax(0, 1fr); }\n  .am-grid > .am-panel.am-span-wide { grid-column: auto !important; }\n  html[data-theme="blueprint"] .am-frame { padding: 0; border: 0; }\n  html[data-theme="blueprint"] .am-frame::before, html[data-theme="blueprint"] .am-ruler { display: none; }\n  .am-doc-layout { grid-template-columns: minmax(0, 1fr); }\n  .am-toc { position: static; }\n  .am-timeline--h { grid-template-columns: minmax(0, 1fr); }\n  .am-tree-cols { grid-template-columns: minmax(0, 1fr); }\n}\n.am-colophon { text-align: center; padding: 0 0 28px; font: 11px var(--font-mono); color: var(--ink-3); }\n\n@media print {\n  .am-toolbar { display: none; }\n  body { background: var(--paper); }\n  .am-panel { break-inside: avoid; box-shadow: none; }\n}\n.am-panel--bare { border: 0; background: transparent; box-shadow: none; }\n.am-panel--bare > .am-panel-body { padding: 0; }\n.am-panel--bare .am-kv { background: var(--paper); }\n';
+var RUNTIME_JS = `(() => {
+  const root = document.documentElement;
+  const cycle = (list, cur) => list[(list.indexOf(cur) + 1) % list.length];
+  const label = (btn, value) => {
+    const map = JSON.parse(btn.dataset.labels || '{}');
+    btn.textContent = map[value] || value;
+  };
+  const bind = (name, attr, values) => {
+    const btn = document.querySelector(\`[data-am="\${name}"]\`);
+    if (!btn) return;
+    label(btn, root.getAttribute(attr));
+    btn.addEventListener('click', () => {
+      const next = cycle(values, root.getAttribute(attr));
+      root.setAttribute(attr, next);
+      label(btn, next);
+    });
+  };
+  bind('theme', 'data-theme', ['blueprint', 'shadcn']);
+  bind('mode', 'data-mode', ['auto', 'light', 'dark']);
+
+  const copyBtn = document.querySelector('[data-am="copy"]');
+  copyBtn?.addEventListener('click', async () => {
+    const nodes = document.querySelectorAll('#am-source');
+    const text = nodes[nodes.length - 1]?.value ?? '';
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = Object.assign(document.createElement('textarea'), { value: text });
+      document.body.append(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    const original = copyBtn.textContent;
+    copyBtn.textContent = copyBtn.dataset.done;
+    setTimeout(() => { copyBtn.textContent = original; }, 1400);
+  });
+})();
+`;
+var VIDEO_CSS = "/* 视频播放页：1920×1080 舞台按窗口等比缩放。颜色全部来自主题变量：\n   blueprint / shadcn 沿用页面主题；3b1b 是视频专用的深色主题（深底、蓝线、黄色强调）。 */\nhtml[data-video] {\n  /* 播放控件不进入画面，也不随主题变化，固定用一组深色 token */\n  --v-ctl-bg: #0b0d11; --v-ctl-line: #1d2330; --v-ctl-fg: #c9d1dc; --v-ctl-muted: #5b6576;\n  --v-ctl-btn: #141922; --v-ctl-btn-line: #2a3240; --v-ctl-accent: #58c4dd; --v-ctl-white: #fff;\n  --v-letterbox: #000;\n  --v-stage: var(--bg);\n  --v-cap-fg: var(--ink); --v-cap-bg: var(--paper); --v-cap-border: var(--line);\n  --v-title-font: var(--head-font);\n  --v-glow: none;\n}\nhtml[data-video][data-theme=\"3b1b\"] {\n  --bg: #0e1015; --paper: #141922; --ink: #eceff4; --ink-2: #a9b4c4; --ink-3: #6c7789;\n  --line: #58c4dd; --line-2: #2a3444; --fill: #171d27;\n  --accent: #f7d96f; --accent-bg: rgba(247, 217, 111, 0.12);\n  --ok: #83c167; --ok-bg: rgba(131, 193, 103, 0.14); --err: #fc6255; --err-bg: rgba(252, 98, 85, 0.14);\n  --warn: #f7d96f; --warn-bg: rgba(247, 217, 111, 0.12); --head-bg: #eceff4; --head-fg: #0e1015;\n  --radius: 6px; --bw: 1.6px; --shadow: none;\n  --font-sans: -apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", Roboto, sans-serif;\n  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n  --head-font: var(--font-sans);\n  --v-stage: radial-gradient(ellipse at 50% 40%, #151a23 0%, #0e1015 70%);\n  --v-cap-fg: #fff; --v-cap-bg: rgba(8, 10, 14, 0.55); --v-cap-border: transparent;\n  --v-title-font: \"CMU Serif\", \"Latin Modern Roman\", \"Iowan Old Style\", \"Palatino\", \"Songti SC\", \"STSong\", \"Noto Serif CJK SC\", serif;\n  --v-glow: drop-shadow(0 0 6px rgba(247, 217, 111, 0.55));\n}\n/* blueprint：图纸底加细网格 */\nhtml[data-video][data-theme=\"blueprint\"] {\n  --v-stage: linear-gradient(var(--line-2) 1px, transparent 1px) 0 0 / 40px 40px,\n             linear-gradient(90deg, var(--line-2) 1px, transparent 1px) 0 0 / 40px 40px, var(--paper);\n}\nhtml[data-video][data-theme=\"blueprint\"][data-mode=\"dark\"] {\n  --v-stage: linear-gradient(rgba(201, 214, 232, 0.07) 1px, transparent 1px) 0 0 / 40px 40px,\n             linear-gradient(90deg, rgba(201, 214, 232, 0.07) 1px, transparent 1px) 0 0 / 40px 40px, var(--bg);\n}\n\nhtml[data-video], html[data-video] body { background: var(--v-letterbox); height: 100%; overflow: hidden; }\nhtml[data-video] body { font-size: 22px; }\n\n.amv-viewport { position: fixed; inset: 0 0 56px 0; overflow: hidden; }\n.amv-stage {\n  position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; overflow: hidden;\n  background: var(--v-stage); color: var(--ink); transform-origin: 50% 50%;\n}\n.amv-camera { position: absolute; inset: 0; transform-origin: 0 0; }\n.amv-overlay { position: absolute; inset: 0; pointer-events: none; }\n.amv-ghost { position: absolute; left: 0; top: 0; transform-origin: 0 0; margin: 0; }\n.amv-ghost svg { display: block; max-width: none; overflow: visible; }\n\n/* ── 图纸外框（blueprint）── */\n.amv-sheet { display: none; }\nhtml[data-theme=\"blueprint\"] .amv-sheet {\n  display: block; position: absolute; inset: 24px; border: 1.5px solid var(--line); pointer-events: none;\n}\nhtml[data-theme=\"blueprint\"] .amv-sheet::before {\n  content: \"\"; position: absolute; inset: 24px; border: 1.5px solid var(--line);\n}\n.amv-ruler { position: absolute; display: flex; font: 13px/1 var(--font-mono); color: var(--ink-3); }\n.amv-ruler span { flex: 1; display: flex; align-items: center; justify-content: center; }\n.amv-ruler--top, .amv-ruler--bottom { left: 24px; right: 24px; height: 24px; }\n.amv-ruler--top { top: 0; }\n.amv-ruler--bottom { bottom: 0; }\n.amv-ruler--left, .amv-ruler--right { top: 24px; bottom: 24px; width: 24px; flex-direction: column; }\n.amv-ruler--left { left: 0; }\n.amv-ruler--right { right: 0; }\n.amv-ruler--top span + span, .amv-ruler--bottom span + span { border-left: 1px solid var(--line); }\n.amv-ruler--left span + span, .amv-ruler--right span + span { border-top: 1px solid var(--line); }\n\n/* ── 场景 ── */\n.amv-scene { position: absolute; inset: 0; visibility: hidden; }\n.amv-scene-head {\n  position: absolute; left: 72px; right: 72px; top: 72px; height: 64px; visibility: hidden;\n  display: flex; align-items: stretch; border: var(--bw) solid var(--line); background: var(--paper);\n  border-radius: var(--radius); overflow: hidden; color: var(--ink);\n}\n.amv-scene-n {\n  display: flex; align-items: center; justify-content: center; min-width: 64px; padding: 0 14px;\n  background: var(--head-bg); color: var(--head-fg); font: 700 30px var(--font-sans);\n}\n.amv-scene-title { flex: 1; display: flex; align-items: center; padding: 0 22px; font: 600 32px var(--v-title-font); }\n.amv-scene-meta { display: flex; align-items: center; padding: 0 22px; font: 16px var(--font-mono); color: var(--ink-2); letter-spacing: 0.06em; }\nhtml[data-theme=\"shadcn\"] .amv-scene-n { margin: 12px 0 12px 14px; min-width: 40px; border-radius: 8px; font-size: 22px; }\nhtml[data-theme=\"shadcn\"] .amv-scene-head { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }\n/* 3b1b：标题浮在左上角，不要边框 */\nhtml[data-theme=\"3b1b\"] .amv-scene-head { left: 96px; top: 56px; border: 0; background: none; align-items: baseline; gap: 22px; }\nhtml[data-theme=\"3b1b\"] .amv-scene-n { background: none; color: var(--line); padding: 0; min-width: 0; font: 500 30px var(--font-mono); }\nhtml[data-theme=\"3b1b\"] .amv-scene-title { padding: 0; font-weight: 400; font-size: 46px; }\nhtml[data-theme=\"3b1b\"] .amv-scene-meta { display: none; }\n\n/* patch: end above the subtitle box (two caption lines start at about y=870) */\n.amv-body { position: absolute; left: 96px; right: 96px; top: 160px; height: 690px; display: grid; place-items: center; }\n.amv-fit { width: max-content; max-width: 1100px; transform-origin: 50% 50%; display: flex; flex-direction: column; gap: 28px; }\n.amv-fit .am-diagram { overflow: visible; }\n.amv-fit .am-diagram svg { max-width: none; overflow: visible; }\n.amv-fit .am-md { font-size: 26px; line-height: 1.6; }\n.amv-fit table { font-size: 24px; }\n.amv-fit th { font-size: 17px; }\n\n/* ── 片头 ── */\n.amv-scene--title { display: grid; place-items: center; text-align: center; }\n.amv-title-wrap { max-width: 1500px; display: flex; flex-direction: column; align-items: center; }\n.amv-title { margin: 0; font: 700 96px/1.15 var(--v-title-font); color: var(--ink); letter-spacing: -0.01em; text-wrap: balance; }\n.amv-subtitle { margin: 26px 0 0; font: 36px var(--v-title-font); color: var(--accent); }\n.amv-intro { margin-top: 36px; font-size: 28px; color: var(--ink-2); }\n.amv-titleblock {\n  display: flex; margin-top: 56px; border: var(--bw) solid var(--line); border-radius: var(--radius);\n  background: var(--paper); text-align: left; overflow: hidden;\n}\n.amv-titleblock div { padding: 16px 30px; display: flex; flex-direction: column; gap: 6px; }\n.amv-titleblock div + div { border-left: 1px solid var(--line); }\n.amv-titleblock b { font: 600 16px var(--font-mono); color: var(--ink-3); letter-spacing: 0.08em; }\n.amv-titleblock span { font: 28px var(--font-sans); color: var(--ink); }\nhtml[data-theme=\"3b1b\"] .amv-title { font-weight: 400; font-size: 104px; letter-spacing: 0.005em; }\nhtml[data-theme=\"3b1b\"] .amv-subtitle { color: var(--line); }\nhtml[data-theme=\"3b1b\"] .amv-titleblock { display: none; }\n\n/* ── 字幕 ── */\n.amv-caption {\n  position: absolute; left: 0; right: 0; bottom: 76px; display: flex; justify-content: center; pointer-events: none;\n}\n.amv-caption span {\n  max-width: 1500px; padding: 12px 28px; border-radius: var(--radius); text-align: center;\n  font: 500 38px/1.45 var(--font-sans); color: var(--v-cap-fg); background: var(--v-cap-bg);\n  border: var(--bw) solid var(--v-cap-border);\n}\nhtml[data-theme=\"3b1b\"] .amv-caption { bottom: 56px; }\nhtml[data-theme=\"3b1b\"] .amv-caption span { text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6); font-size: 40px; }\n.amv-caption span:empty { display: none; }\n.amv-caption b { color: var(--accent); font-weight: 700; }\n\n/* ── 旁白点名时的高亮；连线标签平时用灰色，被点名才变色 ── */\nhtml[data-video] .am-diagram .am-edge-label text { fill: var(--ink-2); }\n.amv-hl .am-node-shape, .amv-hl .am-actor {\n  stroke: var(--accent); stroke-width: 3; fill: var(--accent-bg); filter: var(--v-glow);\n}\nhtml[data-video] .am-diagram .amv-hl text, html[data-video] .am-diagram text.amv-hl { fill: var(--accent); font-weight: 600; }\n.amv-hl .am-edge { stroke: var(--accent); stroke-width: 2.4; }\n.amv-hl.am-tree-box, .amv-hl.am-tl-item, .amv-hl.am-lim, .amv-hl.am-kv-cell, li.amv-hl > .am-tree-label, tr.amv-hl td, .amv-hl.am-seg {\n  color: var(--accent); outline: 2.5px solid var(--accent); outline-offset: 4px; border-radius: 4px;\n}\n\n/* ── 播放控件（不进入画面）── */\n.amv-bigplay {\n  position: absolute; left: 50%; top: 50%; width: 132px; height: 132px; margin: -66px 0 0 -66px; border-radius: 50%;\n  border: 2px solid var(--v-ctl-white); background: rgba(0, 0, 0, 0.55); color: var(--v-ctl-white); font-size: 54px; cursor: pointer;\n  padding-left: 10px;\n}\n.amv-bigplay[hidden] { display: none; }\n.amv-controls {\n  position: fixed; left: 0; right: 0; bottom: 0; height: 56px; display: flex; align-items: center; gap: 14px;\n  padding: 0 18px; background: var(--v-ctl-bg); border-top: 1px solid var(--v-ctl-line); color: var(--v-ctl-fg); font: 13px -apple-system, \"Segoe UI\", sans-serif;\n}\n.amv-btn { width: 36px; height: 32px; border: 1px solid var(--v-ctl-btn-line); border-radius: 6px; background: var(--v-ctl-btn); color: var(--v-ctl-white); cursor: pointer; }\n.amv-time { font-family: ui-monospace, Menlo, monospace; min-width: 96px; }\n.amv-track { position: relative; flex: 1; }\n.amv-seek { width: 100%; accent-color: var(--v-ctl-accent); }\n.amv-marks { position: absolute; left: 0; right: 0; top: -6px; height: 6px; pointer-events: none; }\n.amv-marks i { position: absolute; top: 0; width: 2px; height: 6px; background: var(--v-ctl-accent); }\n.amv-brand { color: var(--v-ctl-muted); font-size: 12px; white-space: nowrap; }\n\n/* 导出模式：只留舞台，1:1 无缩放 */\nhtml[data-export] .amv-controls, html[data-export] .amv-bigplay { display: none; }\nhtml[data-export] .amv-viewport { inset: 0; }\nhtml[data-export] .amv-stage { left: 0; top: 0; transform: none !important; }\n";
+var VIDEO_JS = "(() => {\n  const D = JSON.parse(document.getElementById('amv-data').textContent);\n  const W = 1920;\n  const H = 1080;\n  const T = 0.9;     // 场景切换时长，与 TIMING.transition 一致\n  const R = 0.6;     // 单步出现时长\n  const CAM = 0.8;   // 镜头移动时长\n  const root = document.documentElement;\n  const stage = document.querySelector('.amv-stage');\n  const camera = document.querySelector('.amv-camera');\n  const overlay = document.querySelector('.amv-overlay');\n  const caption = document.querySelector('.amv-caption span');\n  const scenes = [...document.querySelectorAll('.amv-scene')];\n  const segs = D.segments;\n  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));\n  const ease = (x) => { const v = clamp(x); return v < 0.5 ? 4 * v * v * v : 1 - (-2 * v + 2) ** 3 / 2; };\n  const lerp = (a, b, p) => a + (b - a) * p;\n  const STEP_SEL = '.am-tl-item, .am-lim, .am-seg, tbody tr, .am-kv-cell, .am-md > ul > li, .am-md > ol > li, .am-md > p, .am-md > blockquote, .am-callout';\n\n  // ── 1. 让每个场景的内容适配画面 ──\n  // paper-explainer-video patch: fit inside the box between the scene title and the subtitle,\n  // with equal margins on both sides. Wide diagrams overflow .amv-fit's max-width (SVGs may\n  // overflow), so the box is widened to the real content width before scaling; otherwise the\n  // overflow is pushed off the right edge.\n  const FIT_W = 1600;   // .amv-body is 1728 px wide; keep 64 px of air on each side\n  const FIT_H = 650;    // .amv-body is 690 px tall (160..850); the subtitle starts below it\n  for (const sc of scenes) {\n    const fit = sc.querySelector('.amv-fit');\n    if (!fit || !fit.children.length) continue;\n    const wide = Math.max(fit.offsetWidth, ...[...fit.children].map((c) => c.scrollWidth));\n    if (wide > fit.offsetWidth + 1) {\n      fit.style.maxWidth = 'none';\n      fit.style.width = `${Math.ceil(wide)}px`;\n    }\n    const s = Math.min(FIT_W / fit.offsetWidth, FIT_H / fit.offsetHeight, 3.4);\n    fit.style.transform = `scale(${s})`;\n  }\n\n  // 场景标题放在镜头之外：镜头推近时标题保持不动。\n  const heads = scenes.map((sc) => {\n    const h = sc.querySelector('.amv-scene-head');\n    if (h) stage.insertBefore(h, camera.nextSibling);\n    return h;\n  });\n\n  // 以舞台为坐标系测量元素（此时镜头为单位变换）。\n  const sr = stage.getBoundingClientRect();\n  const k = sr.width / W;\n  const rectOf = (el) => {\n    const r = el.getBoundingClientRect();\n    return { x: (r.left - sr.left) / k, y: (r.top - sr.top) / k, w: r.width / k, h: r.height / k };\n  };\n\n  // ── 2. 分步：组件自带 data-step 时按它分组，否则按行/条目自动分步 ──\n  const items = [];   // { el, at, paths: [{ el, len }] }\n  scenes.forEach((sc, i) => {\n    if (i === 0) return;\n    const groups = [];\n    for (const block of sc.querySelectorAll('.amv-fit > *')) {\n      const marked = [...block.querySelectorAll('[data-step]')];\n      if (marked.length) {\n        const by = new Map();\n        for (const el of marked) {\n          const n = Number(el.dataset.step);\n          if (!by.has(n)) by.set(n, []);\n          by.get(n).push(el);\n        }\n        [...by.keys()].sort((a, b) => a - b).forEach((n) => groups.push(by.get(n)));\n      } else {\n        const found = [...block.querySelectorAll(STEP_SEL)].filter((el) => !el.parentElement.closest(STEP_SEL));\n        if (found.length) found.forEach((el) => groups.push([el]));\n        else groups.push([block]);\n      }\n    }\n    const beats = segs[i].beats;\n    const S = groups.length;\n    const B = beats.length;\n    const perBeat = new Map();\n    groups.forEach((g, gi) => {\n      // 旁白比步数多时，多出的句子当开场白：步骤对齐到最后几句。\n      const b = S <= B ? gi + (B - S) : Math.floor((gi * B) / S);\n      const rank = perBeat.get(b) ?? 0;\n      perBeat.set(b, rank + 1);\n      const beat = beats[b];\n      const count = S <= B ? 1 : Math.ceil(S / B) || 1;\n      const slot = Math.min(0.45, (beat.end - beat.start) / count);\n      for (const el of g) {\n        const paths = (el.matches('path.am-edge') ? [el] : [...el.querySelectorAll('path.am-edge')])\n          .filter((p) => !p.classList.contains('am-edge--dashed'))\n          .map((p) => ({ el: p, len: p.getTotalLength() }));\n        items.push({ el, scene: i, at: beat.start + rank * slot, paths });\n      }\n    });\n  });\n\n  // ── 3. 跨场景变形：前后两个场景里同名（data-key）的元素 ──\n  const morphs = [];  // { scene, from, to, ghost, a, b }\n  const keyed = (sc) => {\n    const m = new Map();\n    for (const el of sc.querySelectorAll('[data-key]')) if (!m.has(el.dataset.key)) m.set(el.dataset.key, el);\n    return m;\n  };\n  for (let i = 2; i < scenes.length; i++) {\n    const prev = keyed(scenes[i - 1]);\n    for (const [key, to] of keyed(scenes[i])) {\n      const from = prev.get(key);\n      // 只在同类元素之间变形（SVG 对 SVG、HTML 对 HTML），否则形状对不上。\n      if (!from || (from instanceof SVGElement) !== (to instanceof SVGElement)) continue;\n      try {\n        const ghost = makeGhost(from);\n        overlay.append(ghost.node);\n        morphs.push({ scene: i, from, to, ghost: ghost.node, a: ghost.place(rectOf(from)), b: ghost.place(rectOf(to)) });\n      } catch {\n        // 变形只是锦上添花：个别元素测量失败时直接跳过，不影响播放。\n      }\n    }\n  }\n  const carried = new Set(morphs.map((m) => m.to));\n\n  function makeGhost(el) {\n    const wrap = document.createElement('div');\n    const host = el.closest('.am-diagram, .am-tree, .am-timeline, .am-kv, .am-limits');\n    wrap.className = `amv-ghost ${host ? host.className : ''}`;\n    if (el instanceof SVGGraphicsElement) {\n      const bb = el.getBBox();\n      const pad = 4;\n      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');\n      svg.setAttribute('viewBox', `${bb.x - pad} ${bb.y - pad} ${bb.width + pad * 2} ${bb.height + pad * 2}`);\n      svg.setAttribute('width', bb.width + pad * 2);\n      svg.setAttribute('height', bb.height + pad * 2);\n      const clone = el.cloneNode(true);\n      clone.removeAttribute('style');\n      svg.append(clone);\n      wrap.append(svg);\n      return {\n        node: wrap,\n        place: (r) => {\n          const s = r.w / (bb.width || 1);\n          return { x: r.x - pad * s, y: r.y - pad * s, s };\n        },\n      };\n    }\n    const clone = el.cloneNode(true);\n    clone.removeAttribute('style');\n    clone.querySelectorAll('[data-key], ul').forEach((n) => n.remove());\n    const box = document.createElement(el.tagName === 'LI' ? 'ul' : 'div');\n    box.className = el.tagName === 'LI' ? 'am-tree-list' : '';\n    box.style.margin = '0';\n    box.append(clone);\n    wrap.append(box);\n    wrap.style.width = `${el.offsetWidth}px`;\n    const w0 = el.offsetWidth || 1;\n    return { node: wrap, place: (r) => ({ x: r.x, y: r.y, s: r.w / w0 }) };\n  }\n\n  // ── 4. 镜头：旁白里 [名字] 对应的元素 ──\n  const findKey = (sc, key) => {\n    const all = [...sc.querySelectorAll('[data-key]')];\n    const norm = (s) => s.replace(/[`*]/g, '').trim().toLowerCase();\n    return all.find((el) => norm(el.dataset.key) === norm(key))\n      ?? all.find((el) => norm(el.dataset.key).includes(norm(key)))\n      ?? [...sc.querySelectorAll(`${STEP_SEL}, text`)].find((el) => norm(el.textContent).includes(norm(key)));\n  };\n  const IDENT = { s: 1, x: 0, y: 0 };\n  // 推近但不裁切：放大后整张图仍要留在标题与字幕之间的安全区里。\n  const SAFE = { left: 96, right: W - 96, top: 150, bottom: 850 }; // patch: same box as .amv-body, above the subtitle\n  function focusCam(r, sc) {\n    const fit = sc.querySelector('.amv-fit');\n    const c = fit ? rectOf(fit) : { x: 0, y: 0, w: W, h: H };\n    const room = Math.min((SAFE.right - SAFE.left) / c.w, (SAFE.bottom - SAFE.top) / c.h);\n    const s = clamp(Math.min(0.5 * W / r.w, 0.42 * H / r.h, room, 1.4), 1, 1.4);\n    const fitAxis = (want, lo, hi, a, b) => (s * (b - a) <= hi - lo ? clamp(want, lo - s * a, hi - s * b) : want);\n    return {\n      s,\n      x: fitAxis(W / 2 - s * (r.x + r.w / 2), SAFE.left, SAFE.right, c.x, c.x + c.w),\n      y: fitAxis(H * 0.5 - s * (r.y + r.h / 2), SAFE.top, SAFE.bottom, c.y, c.y + c.h),\n    };\n  }\n  const camEvents = [];   // { t, cam, hl }\n  segs.forEach((seg, i) => {\n    camEvents.push({ t: seg.start, cam: IDENT, hl: null });\n    seg.beats.forEach((b) => {\n      const el = b.focus ? findKey(scenes[i], b.focus) : null;\n      let cam = IDENT;\n      if (el) cam = focusCam(rectOf(el), scenes[i]);\n      camEvents.push({ t: b.start, cam, hl: el });\n    });\n  });\n  const hlTargets = new Set(camEvents.map((e) => e.hl).filter(Boolean));\n\n  // 场景与标题的淡入淡出。标题不交叠：旧标题在切换前半段淡出，新标题在后半段淡入。\n  const show = (el, op) => {\n    el.style.opacity = op;\n    el.style.visibility = op > 0 ? 'visible' : 'hidden';\n  };\n  function drawScenes(t) {\n    scenes.forEach((sc, i) => {\n      const seg = segs[i];\n      const next = segs[i + 1];\n      const before = t < seg.start;\n      const fadeIn = i === 0 ? ease(t / 0.8) : ease((t - seg.start) / T);\n      const fadeOut = next ? 1 - ease((t - next.start) / T) : 1;\n      show(sc, before ? 0 : Math.min(fadeIn, fadeOut));\n      if (!heads[i]) return;\n      const hin = ease((t - seg.start - T / 2) / (T / 2));\n      const hout = next ? 1 - ease((t - next.start) / (T / 2)) : 1;\n      show(heads[i], before ? 0 : Math.min(hin, hout));\n    });\n  }\n\n  // 逐步出现：连线一笔画出，其余元素淡入并轻微上移。\n  function drawSteps(t) {\n    for (const it of items) {\n      if (carried.has(it.el)) continue;\n      const p = ease((t - it.at) / R);\n      it.el.style.opacity = clamp((t - it.at) / 0.25);\n      if (!it.paths.length) {\n        it.el.style.transform = p < 1 ? `translateY(${(1 - p) * 14}px)` : '';\n        continue;\n      }\n      for (const { el, len } of it.paths) {\n        el.style.strokeDasharray = `${len}`;\n        el.style.strokeDashoffset = `${len * (1 - p)}`;\n        el.style.markerEnd = p < 0.97 ? 'none' : '';\n      }\n    }\n  }\n\n  // 跨场景变形：切换期间用替身从旧位置移到新位置，真身暂时隐藏。\n  // 一个元素可能既是上一场变形的终点、又是下一场变形的起点；先汇总\"该藏\"的元素再统一设置，避免互相覆盖。\n  const morphed = [...new Set(morphs.flatMap((m) => [m.from, m.to]))];\n  function drawMorphs(t) {\n    const hidden = new Set();\n    for (const m of morphs) {\n      const s0 = segs[m.scene].start;\n      const during = t >= s0 && t < s0 + T;\n      m.ghost.style.display = during ? '' : 'none';\n      if (during) {\n        const p = ease((t - s0) / T);\n        m.ghost.style.transform = `translate(${lerp(m.a.x, m.b.x, p)}px, ${lerp(m.a.y, m.b.y, p)}px) scale(${lerp(m.a.s, m.b.s, p)})`;\n        hidden.add(m.from);\n      }\n      if (t < s0 + T) hidden.add(m.to);\n      m.to.style.opacity = 1;\n    }\n    for (const el of morphed) el.style.visibility = hidden.has(el) ? 'hidden' : '';\n  }\n\n  // 镜头与高亮：在上一个镜头位置和当前目标之间插值。\n  function drawCamera(t) {\n    const ev = camEvents.findLastIndex((e) => t >= e.t);\n    const e = ev >= 0 ? camEvents[ev] : null;\n    const prev = ev > 0 ? camEvents[ev - 1].cam : IDENT;\n    const p = e ? ease((t - e.t) / CAM) : 0;\n    const to = e ? e.cam : IDENT;\n    camera.style.transform = `translate(${lerp(prev.x, to.x, p)}px, ${lerp(prev.y, to.y, p)}px) scale(${lerp(prev.s, to.s, p)})`;\n    for (const el of hlTargets) el.classList.toggle('amv-hl', el === e?.hl);\n  }\n\n  function drawCaption(t) {\n    const cur = segs.findLastIndex((s) => t >= s.start);\n    const beats = cur >= 0 ? segs[cur].beats : [];\n    const b = beats.find((x) => t >= x.start && t < x.end + 0.3);\n    const html = b ? b.html : '';\n    if (caption.dataset.html !== html) {\n      caption.innerHTML = html;\n      caption.dataset.html = html;\n    }\n    caption.style.opacity = b ? clamp((t - b.start) / 0.2) : 0;\n  }\n\n  // ── 5. 确定性渲染：同一时刻永远画出同一帧 ──\n  function render(time) {\n    const t = clamp(time, 0, D.duration);\n    drawScenes(t);\n    drawSteps(t);\n    drawMorphs(t);\n    drawCamera(t);\n    drawCaption(t);\n    updateUi(t);\n  }\n\n  // ── 6. 播放器 ──\n  const audio = document.getElementById('amv-audio');\n  const seek = document.querySelector('.amv-seek');\n  const timeEl = document.querySelector('.amv-time');\n  const toggleBtn = document.querySelector('[data-amv=\"toggle\"]');\n  const bigPlay = document.querySelector('.amv-bigplay');\n  const marks = document.querySelector('.amv-marks');\n  const fmt = (x) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;\n  seek.max = D.duration;\n  segs.slice(1).forEach((s) => {\n    const m = document.createElement('i');\n    m.style.left = `${(s.start / D.duration) * 100}%`;\n    m.title = s.title;\n    marks.append(m);\n  });\n\n  let playing = false;\n  let base = 0;\n  let t0 = 0;\n  const now = () => (!playing ? base : audio ? audio.currentTime : base + (performance.now() - t0) / 1000);\n\n  function updateUi(t) {\n    if (document.activeElement !== seek) seek.value = t;\n    timeEl.textContent = `${fmt(t)} / ${fmt(D.duration)}`;\n  }\n\n  function play() {\n    if (base >= D.duration - 0.05) base = 0;\n    playing = true;\n    bigPlay.hidden = true;\n    toggleBtn.textContent = '❚❚';\n    toggleBtn.setAttribute('aria-label', toggleBtn.dataset.pause);\n    if (audio) {\n      audio.currentTime = base;\n      audio.play().catch(() => {});\n    } else {\n      t0 = performance.now();\n    }\n    requestAnimationFrame(tick);\n  }\n\n  function pause() {\n    base = now();\n    playing = false;\n    audio?.pause();\n    toggleBtn.textContent = '▶';\n    toggleBtn.setAttribute('aria-label', toggleBtn.dataset.play);\n  }\n\n  function seekTo(x) {\n    base = clamp(x, 0, D.duration);\n    if (audio) audio.currentTime = base;\n    t0 = performance.now();\n    render(base);\n  }\n\n  function tick() {\n    if (!playing) return;\n    const t = now();\n    if (t >= D.duration) {\n      pause();\n      base = D.duration;\n      render(D.duration);\n      return;\n    }\n    render(t);\n    requestAnimationFrame(tick);\n  }\n\n  const toggle = () => (playing ? pause() : play());\n  toggleBtn.addEventListener('click', toggle);\n  bigPlay.addEventListener('click', play);\n  stage.addEventListener('click', (e) => { if (e.target !== bigPlay) toggle(); });\n  seek.addEventListener('input', () => seekTo(Number(seek.value)));\n  document.addEventListener('keydown', (e) => {\n    if (e.key === ' ') { e.preventDefault(); toggle(); }\n    if (e.key === 'ArrowRight') seekTo(now() + 5);\n    if (e.key === 'ArrowLeft') seekTo(now() - 5);\n  });\n  audio?.addEventListener('ended', () => { pause(); base = D.duration; });\n\n  function fitStage() {\n    if (root.hasAttribute('data-export')) return;\n    const vp = stage.parentElement;\n    const s = Math.min(vp.clientWidth / W, vp.clientHeight / H);\n    stage.style.transform = `translate(-50%, -50%) scale(${s})`;\n  }\n  window.addEventListener('resize', fitStage);\n\n  // 导出：把舞台 1:1 摆在左上角，逐帧调用 render(t)。\n  window.render = render;\n  window.__amv = {\n    duration: D.duration,\n    fps: D.fps,\n    exportMode() { root.setAttribute('data-export', ''); stage.style.transform = ''; },\n  };\n  fitStage();\n  // 封面：显示完全淡入后的片头，但播放仍从 0 开始。\n  render(Math.min(1, segs[0].end));\n  updateUi(0);\n})();\n";
+
+// src/cli.js
+import { join as join6, resolve, dirname as dirname2 } from "node:path";
+import { spawn as spawn4 } from "node:child_process";
+
+// src/parse.js
+var ParseError = class extends Error {
+  constructor(message, line) {
+    super(message);
+    this.name = "ParseError";
+    this.line = line;
+  }
+};
+var CHOICES = Object.freeze({
+  template: ["sheet", "doc", "video"],
+  theme: ["blueprint", "shadcn"],
+  style: ["off", "80", "strict"],
+  mode: ["auto", "light", "dark"]
+});
+var DEFAULT_META = Object.freeze({
+  template: "sheet",
+  theme: "blueprint",
+  style: "80",
+  mode: "auto",
+  cols: 3,
+  title: ""
+});
+var NUMERIC_KEYS = /* @__PURE__ */ new Set(["cols", "span"]);
+var FENCE_OPEN = /^(`{3,}|~{3,})\s*([^\s`]*)\s*(.*)$/;
+var PANEL_HEADING = /^##\s+(.+?)\s*$/;
+var ATTR_BLOCK = /\s*\{([^{}]*)\}\s*$/;
+var PANEL_ID = /^([A-Z][0-9]?)\s+(.+)$/;
+var ATTR_TOKEN = /([\w-]+)(?:=("[^"]*"|'[^']*'|\S+))?/g;
+function parseDoc(source, { defaults: defaults2 = {}, choices = {} } = {}) {
+  const lines = String(source).replace(/\r\n?/g, "\n").split("\n");
+  const { meta, bodyStart } = parseFrontmatter(lines, { ...DEFAULT_META, ...defaults2 }, { ...CHOICES, ...choices });
+  const sections = splitSections(lines, bodyStart);
+  const intro = extractTitle(sections.intro, meta);
+  const panels = assignIds(sections.panels);
+  return { meta, intro, panels };
+}
+function parseFrontmatter(lines, base, allowed) {
+  if (lines[0]?.trim() !== "---") return { meta: { ...base }, bodyStart: 0 };
+  const end = lines.findIndex((l3, i) => i > 0 && l3.trim() === "---");
+  if (end === -1) throw new ParseError("frontmatter \u672A\u95ED\u5408\uFF1A\u7F3A\u5C11\u7ED3\u675F\u884C ---", 1);
+  const entries = {};
+  for (let i = 1; i < end; i++) {
+    const raw = stripLineComment(lines[i]).trim();
+    if (!raw || raw.startsWith("#")) continue;
+    const m = raw.match(/^([\w-]+)\s*:\s*(.*)$/);
+    if (!m) throw new ParseError(`frontmatter \u65E0\u6CD5\u89E3\u6790\uFF1A"${lines[i]}"\uFF0C\u5E94\u4E3A key: value`, i + 1);
+    entries[m[1]] = { value: coerce(m[1], unquote(m[2])), line: i + 1 };
+  }
+  const meta = { ...base };
+  for (const [key, { value, line }] of Object.entries(entries)) {
+    if (allowed[key] && !allowed[key].includes(String(value))) {
+      throw new ParseError(`${key} \u7684\u503C "${value}" \u65E0\u6548\uFF0C\u53EF\u9009\uFF1A${allowed[key].join(" | ")}`, line);
+    }
+    meta[key] = allowed[key] ? String(value) : value;
+  }
+  return { meta, bodyStart: end + 1 };
+}
+function splitSections(lines, start) {
+  const intro = [];
+  const panels = [];
+  let current = { blocks: intro };
+  let mdBuf = null;
+  const flushMd = () => {
+    if (mdBuf && mdBuf.lines.some((l3) => l3.trim())) {
+      current.blocks.push({ type: "md", text: mdBuf.lines.join("\n"), line: mdBuf.line });
+    }
+    mdBuf = null;
+  };
+  for (let i = start; i < lines.length; i++) {
+    const line = lines[i];
+    const fence = line.match(FENCE_OPEN);
+    if (fence) {
+      flushMd();
+      const close = findFenceClose(lines, i, fence[1]);
+      if (close === -1) throw new ParseError(`\u56F4\u680F\u5757 ${fence[1]}${fence[2]} \u672A\u95ED\u5408`, i + 1);
+      current.blocks.push({
+        type: "fence",
+        lang: fence[2].toLowerCase(),
+        args: fence[3].trim(),
+        text: lines.slice(i + 1, close).join("\n"),
+        line: i + 1
+      });
+      i = close;
+      continue;
+    }
+    const heading = line.match(PANEL_HEADING);
+    if (heading) {
+      flushMd();
+      current = { ...parseHeading(heading[1]), line: i + 1, blocks: [] };
+      panels.push(current);
+      continue;
+    }
+    if (!mdBuf) mdBuf = { line: i + 1, lines: [] };
+    mdBuf.lines.push(line);
+  }
+  flushMd();
+  return { intro, panels };
+}
+function findFenceClose(lines, openIdx, marker) {
+  const closeRe = new RegExp(`^${marker[0] === "`" ? "`" : "~"}{${marker.length},}\\s*$`);
+  for (let j2 = openIdx + 1; j2 < lines.length; j2++) {
+    if (closeRe.test(lines[j2])) return j2;
+  }
+  return -1;
+}
+function parseHeading(text) {
+  let rest = text;
+  let attrs = {};
+  const attrMatch = rest.match(ATTR_BLOCK);
+  if (attrMatch) {
+    attrs = parseAttrs(attrMatch[1]);
+    rest = rest.slice(0, attrMatch.index);
+  }
+  const idMatch = rest.match(PANEL_ID);
+  return idMatch ? { id: idMatch[1], title: idMatch[2].trim(), attrs } : { id: null, title: rest.trim(), attrs };
+}
+function parseAttrs(text) {
+  const attrs = {};
+  for (const m of text.matchAll(ATTR_TOKEN)) {
+    attrs[m[1]] = m[2] === void 0 ? true : coerce(m[1], unquote(m[2]));
+  }
+  return attrs;
+}
+function extractTitle(intro, meta) {
+  if (meta.title || intro[0]?.type !== "md") return intro;
+  const [first, ...rest] = intro;
+  const lines = first.text.split("\n");
+  const idx = lines.findIndex((l3) => l3.trim());
+  const m = lines[idx]?.match(/^#\s+(.+)$/);
+  if (!m) return intro;
+  meta.title = m[1].trim();
+  const remaining = lines.slice(idx + 1);
+  if (!remaining.some((l3) => l3.trim())) return rest;
+  return [{ ...first, text: remaining.join("\n"), line: first.line + idx + 1 }, ...rest];
+}
+function assignIds(panels) {
+  const used = new Set(panels.map((p) => p.id).filter(Boolean));
+  let code = "A".charCodeAt(0);
+  const nextFree = () => {
+    while (used.has(String.fromCharCode(code))) code++;
+    const id = code <= 90 ? String.fromCharCode(code) : `P${code - 64}`;
+    used.add(id);
+    code++;
+    return id;
+  };
+  return panels.map((p) => p.id ? p : { ...p, id: nextFree() });
+}
+function unquote(v) {
+  const s = v.trim();
+  return /^(["']).*\1$/.test(s) ? s.slice(1, -1) : s;
+}
+function stripLineComment(line) {
+  let quote = "";
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote) {
+      if (c === quote) quote = "";
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      quote = c;
+      continue;
+    }
+    if (c === "#" && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(0, i);
+  }
+  return line;
+}
+function coerce(key, value) {
+  if (NUMERIC_KEYS.has(key) && /^\d+$/.test(value)) return Number(value);
+  return value;
+}
+
+// node_modules/marked/lib/marked.esm.js
+function I() {
+  return { async: false, breaks: false, extensions: null, gfm: true, hooks: null, pedantic: false, renderer: null, silent: false, tokenizer: null, walkTokens: null };
+}
+var y = I();
+function W(l3) {
+  y = l3;
+}
+var A = { exec: () => null };
+function C(l3) {
+  let e = [];
+  return (t) => {
+    let n = Math.max(0, Math.min(3, t - 1)), s = e[n];
+    return s || (s = l3(n), e[n] = s), s;
+  };
+}
+function h(l3, e = "") {
+  let t = typeof l3 == "string" ? l3 : l3.source, n = { replace: (s, r) => {
+    let o = typeof r == "string" ? r : r.source;
+    return o = o.replace(x.caret, "$1"), t = t.replace(s, o), n;
+  }, getRegex: () => new RegExp(t, e) };
+  return n;
+}
+var _e = ((l3 = "") => {
+  try {
+    return !!new RegExp("(?<=1)(?<!1)" + l3);
+  } catch {
+    return false;
+  }
+})();
+var x = { codeRemoveIndent: /^(?: {0,3}\t| {1,4})/gm, outputLinkReplace: /\\([\[\]])/g, indentCodeCompensation: /^(\s+)(?:```)/, beginningSpace: /^\s+/, endingHash: /#$/, startingSpaceChar: /^ /, endingSpaceChar: / $/, endingSpaceTabChar: /[ \t]$/, nonSpaceChar: /[^ ]/, newLineCharGlobal: /\n/g, tabCharGlobal: /\t/g, leadingSpaceTab: /^[ \t]+/, multipleSpaceGlobal: /\s+/g, blankLine: /^[ \t]*$/, doubleBlankLine: /\n[ \t]*\n[ \t]*$/, blockquoteStart: /^ {0,3}>/, blockquoteSetextReplace: /\n {0,3}((?:=+|-+) *)(?=\n|$)/g, blockquoteSetextReplace2: /^ {0,3}>[ \t]?/gm, listReplaceNesting: /^ {1,4}(?=( {4})*[^ ])/g, listIsTask: /^\[[ xX]\] +\S/, listReplaceTask: /^\[[ xX]\] +/, listTaskCheckbox: /\[[ xX]\]/, anyLine: /\n.*\n/, hrefBrackets: /^<(.*)>$/, tableDelimiter: /[:|]/, tableAlignChars: /^\||\| *$/g, tableRowBlankLine: /\n[ \t]*$/, tableAlignRight: /^ *-+: *$/, tableAlignCenter: /^ *:-+: *$/, tableAlignLeft: /^ *:-+ *$/, startATag: /^<a /i, endATag: /^<\/a>/i, startPreScriptTag: /^<(pre|code|kbd|script)(\s|>)/i, endPreScriptTag: /^<\/(pre|code|kbd|script)(\s|>)/i, startAngleBracket: /^</, endAngleBracket: />$/, pedanticHrefTitle: /^([^'"]*[^\s])\s+(['"])(.*)\2/, unicodeAlphaNumeric: /[\p{L}\p{N}]/u, numericCharacterReference: /&#(?:(\d{1,7})|[Xx]([A-Fa-f0-9]{1,6}));/g, escapeTest: /[&<>"']/, escapeReplace: /[&<>"']/g, escapeTestNoEncode: /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/, escapeReplaceNoEncode: /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/g, caret: /(^|[^\[])\^/g, percentDecode: /%25/g, findPipe: /\|/g, splitPipe: / \|/, slashPipe: /\\\|/g, carriageReturn: /\r\n|\r/g, spaceLine: /^ +$/gm, notSpaceStart: /^\S*/, endingNewline: /\n$/, listItemRegex: (l3) => new RegExp(`^( {0,3}${l3})((?:[	 ][^\\n]*)?(?:\\n|$))`), nextBulletRegex: C((l3) => new RegExp(`^ {0,${l3}}(?:[*+-]|\\d{1,9}[.)])((?:[ 	][^\\n]*)?(?:\\n|$))`)), hrRegex: C((l3) => new RegExp(`^ {0,${l3}}((?:-[ 	]*){3,}|(?:_[ 	]*){3,}|(?:\\*[ 	]*){3,})(?:\\n+|$)`)), fencesBeginRegex: C((l3) => new RegExp(`^ {0,${l3}}(?:\`\`\`|~~~)`)), headingBeginRegex: C((l3) => new RegExp(`^ {0,${l3}}#`)), htmlBeginRegex: C((l3) => new RegExp(`^ {0,${l3}}(?:</?(?:${N})(?: +|$|/?>)|<(?:script|pre|style|textarea|!--))`, "i")), blockquoteBeginRegex: C((l3) => new RegExp(`^ {0,${l3}}>`)) };
+var $e = /^(?:[ \t]*(?:\n|$))+/;
+var Le = /^((?: {4}| {0,3}\t)[^\n]+(?:\n(?:[ \t]*(?:\n|$))*)?)+/;
+var ze = /^ {0,3}(`{3,}(?=[^`\n]*(?:\n|$))|~{3,})([^\n]*)(?:\n|$)(?:|([\s\S]*?)(?:\n|$))(?: {0,3}\1[~`]* *(?=\n|$)|$)/;
+var G = /^ {0,3}((?:-[\t ]*){3,}|(?:_[ \t]*){3,}|(?:\*[ \t]*){3,})(?:\n+|$)/;
+var Ae = /^ {0,3}(#{1,6})(?=\s|$)(.*)(?:\n+|$)/;
+var J = / {0,3}(?:[*+-]|\d{1,9}[.)])/;
+var ce = /^(?!bull |blockCode|fences|blockquote|heading|html|table)((?:.|\n(?!\s*?\n|bull |fences|blockquote|heading|hr|html|table))+?)\n {0,3}(=+|-+) *(?:\n+|$)/;
+var he = h(ce).replace(/bull/g, J).replace(/blockCode/g, /(?: {4}| {0,3}\t)/).replace(/fences/g, / {0,3}(?:`{3,}|~{3,})/).replace(/blockquote/g, / {0,3}>/).replace(/heading/g, / {0,3}#{1,6}(?:\s|$)/).replace(/hr/g, / {0,3}(?:(?:-[\t ]*){3,}|(?:_[ \t]*){3,}|(?:\*[ \t]*){3,})(?:\n+|$)/).replace(/html/g, / {0,3}<[^\n>]+>\n/).replace(/\|table/g, "").getRegex();
+var Ee = h(ce).replace(/bull/g, J).replace(/blockCode/g, /(?: {4}| {0,3}\t)/).replace(/fences/g, / {0,3}(?:`{3,}|~{3,})/).replace(/blockquote/g, / {0,3}>/).replace(/heading/g, / {0,3}#{1,6}(?:\s|$)/).replace(/hr/g, / {0,3}(?:(?:-[\t ]*){3,}|(?:_[ \t]*){3,}|(?:\*[ \t]*){3,})(?:\n+|$)/).replace(/html/g, / {0,3}<[^\n>]+>\n/).replace(/table/g, / {0,3}\|?(?:[:\- ]*\|)+[\:\- ]*\n/).getRegex();
+var V = /^([^\n]+(?:\n(?!hr|heading|lheading|blockquote|fences|list|html|table|[ \t]+\n)[^\n]+)*)/;
+var Me = /^[^\n]+/;
+var Y = /(?!\s*\])(?:\\[\s\S]|[^\[\]\\])+/;
+var Ie = h(/^ {0,3}\[(label)\]: *(?:\n[ \t]*)?([^<\s][^\s]*|<.*?>)(?:(?: +(?:\n[ \t]*)?| *\n[ \t]*)(title))? *(?:\n+|$)/).replace("label", Y).replace("title", /(?:"(?:\\"?|[^"\\])*"|'[^'\n]*(?:\n[^'\n]+)*\n?'|\([^()]*\))/).getRegex();
+var Ce = h(/^(bull)([ \t][^\n]*?)?(?:\n|$)/).replace(/bull/g, J).getRegex();
+var N = "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|meta|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul";
+var ee = /<!--(?:-?>|[\s\S]*?(?:-->|$))/;
+var Be = h("^ {0,3}(?:<(script|pre|style|textarea)[\\s>][\\s\\S]*?(?:</\\1>[^\\n]*\\n*|$)|comment[^\\n]*(\\n+|$)|<\\?[\\s\\S]*?(?:\\?>[^\\n]*\\n*|$)|<![A-Z][\\s\\S]*?(?:>[^\\n]*\\n*|$)|<!\\[CDATA\\[[\\s\\S]*?(?:\\]\\]>[^\\n]*\\n*|$)|</?(tag)(?: +|\\n|/?>)[\\s\\S]*?(?:(?:\\n[ 	]*)+\\n|$)|<(?!script|pre|style|textarea)([a-z][a-z0-9-]*)(?:attribute)*? */?>(?=[ \\t]*(?:\\n|$))[\\s\\S]*?(?:(?:\\n[ 	]*)+\\n|$)|</(?!script|pre|style|textarea)[a-z][a-z0-9-]*\\s*>(?=[ \\t]*(?:\\n|$))[\\s\\S]*?(?:(?:\\n[ 	]*)+\\n|$))", "i").replace("comment", ee).replace("tag", N).replace("attribute", / +[a-zA-Z:_][\w.:-]*(?: *= *"[^"\n]*"| *= *'[^'\n]*'| *= *[^\s"'=<>`]+)?/).getRegex();
+var de = (l3) => h(V).replace("hr", G).replace("heading", " {0,3}#{1,6}(?:\\s|$)").replace("|lheading", "").replace("|table", "").replace("blockquote", " {0,3}>").replace("fences", " {0,3}(?:`{3,}(?=[^`\\n]*(?:\\n|$))|~~~)[^\\n]*(?:\\n|$)").replace("list", l3).replace("html", "</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag", N).getRegex();
+var De = de(/ {0,3}(?:[*+-]|1[.)])[ \t]+[^ \t\n]/);
+var qe = de(/ {0,3}(?:[*+-]|\d{1,9}[.)])(?:[ \t]|\n|$)/);
+var ve = h(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/).replace("paragraph", qe).getRegex();
+var te = { blockquote: ve, code: Le, def: Ie, fences: ze, heading: Ae, hr: G, html: Be, lheading: he, list: Ce, newline: $e, paragraph: De, table: A, text: Me };
+var le = h("^ *([^\\n ].*)\\n {0,3}((?:\\| *)?:?-+:? *(?:\\| *:?-+:? *)*(?:\\| *)?)(?:\\n((?:(?! *\\n|hr|heading|blockquote|code|fences|list|html).*(?:\\n|$))*)\\n*|$)").replace("hr", G).replace("heading", " {0,3}#{1,6}(?:\\s|$)").replace("blockquote", " {0,3}>").replace("code", "(?: {4}| {0,3}	)[^\\n]").replace("fences", " {0,3}(?:`{3,}(?=[^`\\n]*(?:\\n|$))|~~~)[^\\n]*(?:\\n|$)").replace("list", " {0,3}(?:[*+-]|1[.)])[ \\t]").replace("html", "</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag", N).getRegex();
+var Ze = { ...te, lheading: Ee, table: le, paragraph: h(V).replace("hr", G).replace("heading", " {0,3}#{1,6}(?:\\s|$)").replace("|lheading", "").replace("table", le).replace("blockquote", " {0,3}>").replace("fences", " {0,3}(?:`{3,}(?=[^`\\n]*(?:\\n|$))|~~~)[^\\n]*(?:\\n|$)").replace("list", " {0,3}(?:[*+-]|1[.)])[ \\t]+[^ \\t\\n]").replace("html", "</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag", N).getRegex() };
+var He = { ...te, html: h(`^ *(?:comment *(?:\\n|\\s*$)|<(tag)[\\s\\S]+?</\\1> *(?:\\n{2,}|\\s*$)|<tag(?:"[^"]*"|'[^']*'|\\s[^'"/>\\s]*)*?/?> *(?:\\n{2,}|\\s*$))`).replace("comment", ee).replace(/tag/g, "(?!(?:a|em|strong|small|s|cite|q|dfn|abbr|data|time|code|var|samp|kbd|sub|sup|i|b|u|mark|ruby|rt|rp|bdi|bdo|span|br|wbr|ins|del|img)\\b)\\w+(?!:|[^\\w\\s@]*@)\\b").getRegex(), def: /^ *\[([^\]]+)\]: *<?([^\s>]+)>?(?: +(["(][^\n]+[")]))? *(?:\n+|$)/, heading: /^(#{1,6})(.*)(?:\n+|$)/, fences: A, lheading: /^(.+?)\n {0,3}(=+|-+) *(?:\n+|$)/, paragraph: h(V).replace("hr", G).replace("heading", ` *#{1,6} *[^
+]`).replace("lheading", he).replace("|table", "").replace("blockquote", " {0,3}>").replace("|fences", "").replace("|list", "").replace("|html", "").replace("|tag", "").getRegex() };
+var Ge = /^\\([!"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~])/;
+var Ne = /^(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)/;
+var ke = /^( {2,}|\\)\n(?!\s*$)[ \t]*/;
+var Qe = /^(`+|[^`])(?:(?= {2,}\n)|[\s\S]*?(?:(?=[\\<!\[`*_]|\b_|$)|[^ ](?= {2,}\n)))/;
+var $ = /[\p{P}\p{S}]/u;
+var B = /[\s\p{P}\p{S}]/u;
+var Q = /[^\s\p{P}\p{S}]/u;
+var je = h(/^((?![*_])punctSpace)/, "u").replace(/punctSpace/g, B).getRegex();
+var Fe = /[\p{Pi}\p{Ps}"']/u;
+var ge = /(?!~)[\p{P}\p{S}]/u;
+var Ue = /(?!~)[\s\p{P}\p{S}]/u;
+var Ke = /(?:[^\s\p{P}\p{S}]|~)/u;
+var We = h(/link|precode-code|html/, "g").replace("link", /\[(?:[^\[\]`]|(?<a>`+)[^`]+\k<a>(?!`))*?\]\((?:\\[\s\S]|[^\\\(\)]|\((?:\\[\s\S]|[^\\\(\)])*\))*\)/).replace("precode-", _e ? "(?<!`)()" : "(^^|[^`])").replace("code", /(?<b>`+)[^`]+\k<b>(?!`)/).replace("html", /<(?! )[^<>]*?>/).getRegex();
+var fe = /^(?:\*+(?:((?!\*)punct)|([^\s*]))?)|^_+(?:((?!_)punct)|([^\s_]))?/;
+var Xe = h(fe, "u").replace(/punct/g, $).getRegex();
+var Je = h(fe, "u").replace(/punct/g, ge).getRegex();
+var Ve = /^(?:\*+(?:((?!\*)(?!openQuote)punct)|([^\s*]))?)|^_+(?:((?!_)(?!openQuote)punct)|([^\s_]))?/;
+var Ye = h(Ve, "u").replace(/openQuote/g, Fe).replace(/punct/g, $).getRegex();
+var me = "^[^_*]*?__[^_*]*?\\*[^_*]*?(?=__)|[^*]+(?=[^*])|(?!\\*)punct(\\*+)(?=[\\s]|$)|notPunctSpace(\\*+)(?!\\*)(?=punctSpace|$)|(?!\\*)punctSpace(\\*+)(?=notPunctSpace)|[\\s](\\*+)(?!\\*)(?=punct)|(?!\\*)punct(\\*+)(?!\\*)(?=punct)|notPunctSpace(\\*+)(?=notPunctSpace)";
+var et = h(me, "gu").replace(/notPunctSpace/g, Q).replace(/punctSpace/g, B).replace(/punct/g, $).getRegex();
+var tt = h(me, "gu").replace(/notPunctSpace/g, Ke).replace(/punctSpace/g, Ue).replace(/punct/g, ge).getRegex();
+var nt = "^[^_*]*?__[^_*]*?\\*[^_*]*?(?=__)|[^*]+(?=[^*])|(?!\\*)punct(\\*+)(?=[\\s]|$)|notPunctSpace(\\*+)(?!\\*)(?=punctSpace|$)|(?!\\*)[\\s](\\*+)(?=notPunctSpace)|[\\s](\\*+)(?!\\*)(?=punct)|(?!\\*)punct(\\*+)(?!\\*)(?=punct)|(?:(?!\\*)punct|notPunctSpace)(\\*+)(?!\\*)(?=notPunctSpace)";
+var rt = h(nt, "gu").replace(/notPunctSpace/g, Q).replace(/punctSpace/g, B).replace(/punct/g, $).getRegex();
+var st = h("^[^_*]*?\\*\\*[^_*]*?_[^_*]*?(?=\\*\\*)|[^_]+(?=[^_])|(?!_)punct(_+)(?=[\\s]|$)|notPunctSpace(_+)(?!_)(?=punctSpace|$)|(?!_)punctSpace(_+)(?=notPunctSpace)|[\\s](_+)(?!_)(?=punct)|(?!_)punct(_+)(?!_)(?=punct)", "gu").replace(/notPunctSpace/g, Q).replace(/punctSpace/g, B).replace(/punct/g, $).getRegex();
+var it = "^[^_*]*?\\*\\*[^_*]*?_[^_*]*?(?=\\*\\*)|[^_]+(?=[^_])|(?!_)punct(_+)(?=[\\s]|$)|notPunctSpace(_+)(?!_)(?=punctSpace|$)|(?!_)[\\s](_+)(?=notPunctSpace)|[\\s](_+)(?!_)(?=punct)|(?!_)punct(_+)(?!_)(?=punct)|(?:(?!_)punct|notPunctSpace)(_+)(?!_)(?=notPunctSpace)";
+var ot = h(it, "gu").replace(/notPunctSpace/g, Q).replace(/punctSpace/g, B).replace(/punct/g, $).getRegex();
+var at = h(/^~~?(?:((?!~)punct)|[^\s~])/, "u").replace(/punct/g, $).getRegex();
+var lt = "^[^~]+(?=[^~])|(?!~)punct(~~?)(?=[\\s]|$)|notPunctSpace(~~?)(?!~)(?=punctSpace|$)|(?!~)punctSpace(~~?)(?=notPunctSpace)|[\\s](~~?)(?!~)(?=punct)|(?!~)punct(~~?)(?!~)(?=punct)|notPunctSpace(~~?)(?=notPunctSpace)";
+var ut = h(lt, "gu").replace(/notPunctSpace/g, Q).replace(/punctSpace/g, B).replace(/punct/g, $).getRegex();
+var pt = h(/\\(punct)/, "gu").replace(/punct/g, $).getRegex();
+var ct = h(/^<(scheme:[^\s\x00-\x1f<>]*|email)>/).replace("scheme", /[a-zA-Z][a-zA-Z0-9+.-]{1,31}/).replace("email", /[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+(@)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(?![-_])/).getRegex();
+var ht = h(ee).replace("(?:-->|$)", "-->").getRegex();
+var dt = h("^comment|^</[a-zA-Z][a-zA-Z0-9-]*\\s*>|^<[a-zA-Z][a-zA-Z0-9-]*(?:attribute)*?\\s*/?>|^<\\?[\\s\\S]*?\\?>|^<![a-zA-Z]+\\s[\\s\\S]*?>|^<!\\[CDATA\\[[\\s\\S]*?\\]\\]>").replace("comment", ht).replace("attribute", /\s+[a-zA-Z:_][\w.:-]*(?:\s*=\s*"[^"]*"|\s*=\s*'[^']*'|\s*=\s*[^\s"'=<>`]+)?/).getRegex();
+var xe = /\[(?:\\[\s\S]|[^\[\]\\])*\]/;
+var U = h(/(?:\[(?:brackets|\\[\s\S]|[^\[\]\\])*\]|\\[\s\S]|`+(?!`)[^`]*?`+(?!`)|``+(?=\])|[^\[\]\\`])*?/).replace("brackets", xe).getRegex();
+var kt = h(/^!?\[(label)\]\(\s*(href)(?:(?:[ \t]+(?:\n[ \t]*)?|\n[ \t]*)(title))?\s*\)/).replace("label", U).replace("href", /<(?:\\.|[^\n<>\\])+>|[^ \t\n\x00-\x1f]+|(?=\))/).replace("title", /"(?:\\"?|[^"\\])*"|'(?:\\'?|[^'\\])*'|\((?:\\\)?|[^)\\])*\)/).getRegex();
+var gt = h(/^!?\[(label)\]\[(ref)\]/).replace("label", U).replace("ref", Y).getRegex();
+var ft = h(/^!?\[(ref)\](?:\[\])?/).replace("ref", Y).getRegex();
+var ue = /(?!\s*\])(?:\\[\s\S]|[^\[\]\\]){1,999}/;
+var mt = h(/(?:[^\[\]\\`]*(?:\[(?:brackets|\\[\s\S]|[^\[\]\\])*\]|\\[\s\S]|`+(?!`)[^`]*?`+(?!`)|``+(?=\]))){0,999}?[^\[\]\\`]*?/).replace("brackets", xe).getRegex();
+var xt = h("reflink|nolink(?!\\()", "g").replace("reflink", h(/^!?\[(label)\]\[(ref)\]/).replace("label", mt).replace("ref", ue).getRegex()).replace("nolink", h(/^!?\[(ref)\](?:\[\])?/).replace("ref", ue).getRegex()).getRegex();
+var pe = /[hH][tT][tT][pP][sS]?|[fF][tT][pP]/;
+var bt = /[A-Za-z0-9._+-]+@[a-zA-Z0-9-_]+(?:\.[a-zA-Z0-9-_]*[a-zA-Z0-9])+(?![\w-])/;
+var Rt = h(/(?:mailto:email|xmpp:email(?:\/[A-Za-z0-9@.]+)?)/).replace(/email/g, bt).getRegex();
+var ne = { _backpedal: A, anyPunctuation: pt, autolink: ct, blockSkip: We, br: ke, code: Ne, del: A, delLDelim: A, delRDelim: A, emStrongLDelim: Xe, emStrongRDelimAst: et, emStrongRDelimUnd: st, escape: Ge, link: kt, nolink: ft, punctuation: je, reflink: gt, reflinkSearch: xt, tag: dt, text: Qe, url: A };
+var Tt = { ...ne, emStrongLDelim: Ye, emStrongRDelimAst: rt, emStrongRDelimUnd: ot, link: h(/^!?\[(label)\]\((.*?)\)/).replace("label", U).getRegex(), reflink: h(/^!?\[(label)\]\s*\[([^\]]*)\]/).replace("label", U).getRegex() };
+var X = { ...ne, emStrongRDelimAst: tt, emStrongLDelim: Je, delLDelim: at, delRDelim: ut, url: h(/^emailProtocol|^((?:protocol):\/\/|www\.)(?:[a-zA-Z0-9\-]+\.?)+[^\s<]*|^email/).replace("emailProtocol", Rt).replace("protocol", pe).replace("email", /[A-Za-z0-9._+-]+(@)[a-zA-Z0-9-_]+(?:\.[a-zA-Z0-9-_]*[a-zA-Z0-9])+(?![\w-])/).getRegex(), _backpedal: /(?:[^?!.,:;*_'"~()&]+|\([^)]*\)|&(?![a-zA-Z0-9]+;$)|[?!.,:;*_'"~)]+(?!$))+/, del: /^(~~?)(?=[^\s~])((?:\\[\s\S]|[^\\])*?(?:\\[\s\S]|[^\s~\\]))\1(?=[^~]|$)/, text: h(/^(?:[^a-zA-Z0-9](?=emailProtocol)|(`+|~+|[^`~])(?:(?=[`~])|(?= {2,}\n)|(?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)|[\s\S]*?(?:(?=[\\<!\[`*~_]|\b_|protocol:\/\/|www\.|$)|[^ ](?= {2,}\n)|[^a-zA-Z0-9](?=emailProtocol)|[^a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-](?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@))))/).replace("protocol", pe).replace(/emailProtocol/g, /(?:mailto|xmpp):/).getRegex() };
+var Ot = { ...X, br: h(ke).replace("{2,}", "*").getRegex(), text: h(X.text).replace("\\b_", "\\b_| {2,}\\n").replace(/\{2,\}/g, "*").getRegex() };
+var j = { normal: te, gfm: Ze, pedantic: He };
+var D = { normal: ne, gfm: X, breaks: Ot, pedantic: Tt };
+var wt = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+var be = (l3) => wt[l3];
+function O(l3, e) {
+  if (e) {
+    if (x.escapeTest.test(l3)) return l3.replace(x.escapeReplace, be);
+  } else if (x.escapeTestNoEncode.test(l3)) return l3.replace(x.escapeReplaceNoEncode, be);
+  return l3;
+}
+function Re(l3) {
+  return l3.replace(x.numericCharacterReference, (e, t, n) => {
+    let s = t === void 0 ? Number.parseInt(n, 16) : Number.parseInt(t, 10);
+    return s === 0 || s > 1114111 || s >= 55296 && s <= 57343 ? "\uFFFD" : String.fromCodePoint(s);
+  });
+}
+function re(l3) {
+  try {
+    l3 = encodeURI(l3).replace(x.percentDecode, "%");
+  } catch {
+    return null;
+  }
+  return l3;
+}
+function se(l3, e) {
+  let t = l3.replace(x.findPipe, (r, o, i) => {
+    let u = false, a = o;
+    for (; --a >= 0 && i[a] === "\\"; ) u = !u;
+    return u ? "|" : " |";
+  }), n = t.split(x.splitPipe), s = 0;
+  if (n[0].trim() || n.shift(), n.length > 0 && !n.at(-1)?.trim() && n.pop(), e) if (n.length > e) n.splice(e);
+  else for (; n.length < e; ) n.push("");
+  for (; s < n.length; s++) n[s] = n[s].trim().replace(x.slashPipe, "|");
+  return n;
+}
+function L(l3, e, t) {
+  let n = l3.length;
+  if (n === 0) return "";
+  let s = 0;
+  for (; s < n; ) {
+    let r = l3.charAt(n - s - 1);
+    if (r === e && !t) s++;
+    else if (r !== e && t) s++;
+    else break;
+  }
+  return l3.slice(0, n - s);
+}
+function ie(l3) {
+  let e = l3.split(`
+`), t = e.length - 1;
+  for (; t >= 0 && x.blankLine.test(e[t]); ) t--;
+  return e.length - t <= 2 ? l3 : e.slice(0, t + 1).join(`
+`);
+}
+function q(l3) {
+  return l3.trim().toLowerCase().toUpperCase().toLowerCase();
+}
+function Te(l3, e) {
+  if (l3.indexOf(e[1]) === -1) return -1;
+  let t = 0;
+  for (let n = 0; n < l3.length; n++) if (l3[n] === "\\") n++;
+  else if (l3[n] === e[0]) t++;
+  else if (l3[n] === e[1] && (t--, t < 0)) return n;
+  return t > 0 ? -2 : -1;
+}
+function oe(l3, e = 0) {
+  let t = e, n = "";
+  for (let s of l3) if (s === "	") {
+    let r = 4 - t % 4;
+    n += " ".repeat(r), t += r;
+  } else n += s, t++;
+  return n;
+}
+function Oe(l3, e, t, n, s) {
+  let r = e.href, o = e.title || null, i = l3[1].replace(s.other.outputLinkReplace, "$1"), u = l3[0].charAt(0) === "!";
+  n.state.inLink = true;
+  let a = n.state.linkEmitted, p = n.state.inRawBlock;
+  n.state.linkEmitted = false;
+  let c = n.inlineTokens(i), d = n.state.linkEmitted;
+  if (n.state.linkEmitted = a, n.state.inLink = false, !u) {
+    if (d) {
+      n.state.inRawBlock = p;
+      return;
+    }
+    n.state.linkEmitted = true;
+  }
+  return { type: u ? "image" : "link", raw: t, href: r, title: o, text: i, tokens: c };
+}
+function yt(l3, e, t) {
+  let n = l3.match(t.other.indentCodeCompensation);
+  if (n === null) return e;
+  let s = n[1];
+  return e.split(`
+`).map((r) => {
+    let o = r.match(t.other.beginningSpace);
+    if (o === null) return r;
+    let [i] = o;
+    return r.slice(Math.min(i.length, s.length));
+  }).join(`
+`);
+}
+function we(l3, e, t, n) {
+  if (!e.includes("<")) return false;
+  for (let s = 0; s < e.length; s++) {
+    if (e[s] === "\\") {
+      s++;
+      continue;
+    }
+    if (e[s] === "`") {
+      let i = n.inline.code.exec(e.slice(s));
+      if (i) {
+        s += i[0].length - 1;
+        continue;
+      }
+    }
+    if (e[s] !== "<") continue;
+    let r = l3.slice(t + s), o = n.inline.tag.exec(r) || n.inline.autolink.exec(r);
+    if (o) {
+      if (o[0].length > e.length - s) return true;
+      s += o[0].length - 1;
+    }
+  }
+  return false;
+}
+var P = class {
+  options;
+  rules;
+  lexer;
+  constructor(e) {
+    this.options = e || y;
+  }
+  space(e) {
+    let t = this.rules.block.newline.exec(e);
+    if (t && t[0].length > 0) return { type: "space", raw: t[0] };
+  }
+  code(e) {
+    let t = this.rules.block.code.exec(e);
+    if (t) {
+      let n = this.options.pedantic ? t[0] : ie(t[0]), s = n.replace(this.rules.other.codeRemoveIndent, "");
+      return { type: "code", raw: n, codeBlockStyle: "indented", text: s };
+    }
+  }
+  fences(e) {
+    let t = this.rules.block.fences.exec(e);
+    if (t) {
+      let n = t[0], s = yt(n, t[3] || "", this.rules);
+      return { type: "code", raw: n, lang: t[2] ? t[2].trim().replace(this.rules.inline.anyPunctuation, "$1") : t[2], text: s };
+    }
+  }
+  heading(e) {
+    let t = this.rules.block.heading.exec(e);
+    if (t) {
+      let n = t[2].trim();
+      if (this.rules.other.endingHash.test(n)) {
+        let s = L(n, "#");
+        (this.options.pedantic || !s || this.rules.other.endingSpaceTabChar.test(s)) && (n = s.trim());
+      }
+      return { type: "heading", raw: L(t[0], `
+`), depth: t[1].length, text: n, tokens: this.lexer.inline(n) };
+    }
+  }
+  hr(e) {
+    let t = this.rules.block.hr.exec(e);
+    if (t) return { type: "hr", raw: L(t[0], `
+`) };
+  }
+  blockquote(e) {
+    let t = this.rules.block.blockquote.exec(e);
+    if (t) {
+      let n = L(t[0], `
+`).split(`
+`), s = "", r = "", o = [];
+      for (; n.length > 0; ) {
+        let i = false, u = [], a;
+        for (a = 0; a < n.length; a++) if (this.rules.other.blockquoteStart.test(n[a])) u.push(n[a]), i = true;
+        else if (!i) u.push(n[a]);
+        else break;
+        n = n.slice(a);
+        let p = u.join(`
+`), c = p.replace(this.rules.other.blockquoteSetextReplace, `
+    $1`).replace(this.rules.other.blockquoteSetextReplace2, "");
+        s = s ? `${s}
+${p}` : p, r = r ? `${r}
+${c}` : c;
+        let d = this.lexer.state.top;
+        if (this.lexer.state.top = true, this.lexer.blockTokens(c, o, true), this.lexer.state.top = d, n.length === 0) break;
+        let m = o.at(-1);
+        if (m?.type === "code") break;
+        if (m?.type === "blockquote") {
+          let b = m, g = n.join(`
+`), w = b.raw + `
+` + g.replace(this.rules.other.blockquoteSetextReplace2, ""), f2 = this.blockquote(w);
+          o[o.length - 1] = f2;
+          let M2 = w.substring(f2.raw.length).replace(/^\n/, ""), v = M2 ? M2.split(`
+`).length : 0, Z2 = v ? n.slice(0, -v) : n;
+          Z2.length > 0 && (s = `${s}
+${Z2.join(`
+`)}`), r = r.substring(0, r.length - b.text.length) + f2.text;
+          break;
+        } else if (m?.type === "list") {
+          let b = m, g = b.raw + `
+` + n.join(`
+`), w = this.list(g);
+          o[o.length - 1] = w, s = s.substring(0, s.length - m.raw.length) + w.raw, r = r.substring(0, r.length - b.raw.length) + w.raw, n = g.substring(o.at(-1).raw.length).split(`
+`);
+          continue;
+        }
+      }
+      return { type: "blockquote", raw: s, tokens: o, text: r };
+    }
+  }
+  list(e) {
+    let t = this.rules.block.list.exec(e);
+    if (t) {
+      let n = t[1].trim(), s = n.length > 1, r = { type: "list", raw: "", ordered: s, start: s ? +n.slice(0, -1) : "", loose: false, items: [] };
+      n = s ? `\\d{1,9}\\${n.slice(-1)}` : `\\${n}`, this.options.pedantic && (n = s ? n : "[*+-]");
+      let o = this.rules.other.listItemRegex(n), i = false;
+      for (; e; ) {
+        let a = false, p = "", c = "";
+        if (!(t = o.exec(e)) || this.rules.block.hr.test(e)) break;
+        p = t[0], e = e.substring(p.length);
+        let d = t[2].split(`
+`, 1)[0], m = t[1].length, b = this.options.pedantic ? oe(d, m) : d.replace(this.rules.other.leadingSpaceTab, (M2) => oe(M2, m)), g = e.split(`
+`, 1)[0], w = !b.trim(), f2 = 0;
+        if (this.options.pedantic ? (f2 = 2, c = b.trimStart()) : w ? f2 = m + 1 : (f2 = b.search(this.rules.other.nonSpaceChar), f2 = f2 > 4 ? 1 : f2, c = b.slice(f2), f2 += m), w && this.rules.other.blankLine.test(g) && (p += g + `
+`, e = e.substring(g.length + 1), a = true), !a) {
+          let M2 = this.rules.other.nextBulletRegex(f2), v = this.rules.other.hrRegex(f2), Z2 = this.rules.other.fencesBeginRegex(f2), ae2 = this.rules.other.headingBeginRegex(f2), ye2 = this.rules.other.htmlBeginRegex(f2), Pe2 = this.rules.other.blockquoteBeginRegex(f2);
+          for (; e; ) {
+            let K2 = e.split(`
+`, 1)[0], H2;
+            if (g = K2, this.options.pedantic ? (g = g.replace(this.rules.other.listReplaceNesting, "  "), H2 = g) : H2 = g.replace(this.rules.other.leadingSpaceTab, (Se2) => Se2.replace(this.rules.other.tabCharGlobal, "    ")), Z2.test(g) || ae2.test(g) || ye2.test(g) || Pe2.test(g) || M2.test(g) || v.test(g)) break;
+            if (H2.search(this.rules.other.nonSpaceChar) >= f2 || !g.trim()) c += `
+` + H2.slice(f2);
+            else {
+              if (w || b.replace(this.rules.other.tabCharGlobal, "    ").search(this.rules.other.nonSpaceChar) >= 4 || Z2.test(b) || ae2.test(b) || v.test(b)) break;
+              c += `
+` + g;
+            }
+            w = !g.trim(), p += K2 + `
+`, e = e.substring(K2.length + 1), b = H2.slice(f2);
+          }
+        }
+        r.loose || (i ? r.loose = true : this.rules.other.doubleBlankLine.test(p) && (i = true)), r.items.push({ type: "list_item", raw: p, task: !!this.options.gfm && this.rules.other.listIsTask.test(c), loose: false, text: c, tokens: [] }), r.raw += p;
+      }
+      let u = r.items.at(-1);
+      if (u) u.raw = u.raw.trimEnd(), u.text = u.text.trimEnd();
+      else return;
+      r.raw = r.raw.trimEnd();
+      for (let a of r.items) if (this.lexer.state.top = false, a.tokens = this.lexer.blockTokens(a.text, []), !r.loose) {
+        let p = a.tokens.filter((d) => d.type === "space"), c = p.length > 0 && p.some((d) => this.rules.other.anyLine.test(d.raw));
+        r.loose = c;
+      }
+      for (let a of r.items) {
+        let p = a.tokens[0];
+        if (a.task && (p?.type === "text" || p?.type === "paragraph")) {
+          a.text = a.text.replace(this.rules.other.listReplaceTask, ""), p.raw = p.raw.replace(this.rules.other.listReplaceTask, ""), p.text = p.text.replace(this.rules.other.listReplaceTask, "");
+          for (let d = this.lexer.inlineQueue.length - 1; d >= 0; d--) if (this.rules.other.listIsTask.test(this.lexer.inlineQueue[d].src)) {
+            this.lexer.inlineQueue[d].src = this.lexer.inlineQueue[d].src.replace(this.rules.other.listReplaceTask, "");
+            break;
+          }
+          let c = this.rules.other.listTaskCheckbox.exec(a.raw);
+          if (c) {
+            let d = { type: "checkbox", raw: c[0] + " ", checked: c[0] !== "[ ]" };
+            a.checked = d.checked, r.loose ? a.tokens[0] && ["paragraph", "text"].includes(a.tokens[0].type) && "tokens" in a.tokens[0] && a.tokens[0].tokens ? (a.tokens[0].raw = d.raw + a.tokens[0].raw, a.tokens[0].text = d.raw + a.tokens[0].text, a.tokens[0].tokens.unshift(d)) : a.tokens.unshift({ type: "paragraph", raw: d.raw, text: d.raw, tokens: [d] }) : a.tokens.unshift(d);
+          }
+        } else a.task && (a.task = false);
+      }
+      if (r.loose) for (let a of r.items) {
+        a.loose = true;
+        for (let p of a.tokens) p.type === "text" && (p.type = "paragraph");
+      }
+      return r;
+    }
+  }
+  html(e) {
+    let t = this.rules.block.html.exec(e);
+    if (t) {
+      let n = ie(t[0]);
+      return { type: "html", block: true, raw: n, pre: t[1] === "pre" || t[1] === "script" || t[1] === "style", text: n };
+    }
+  }
+  def(e) {
+    let t = this.rules.block.def.exec(e);
+    if (t) {
+      let n = q(t[1]).replace(this.rules.other.multipleSpaceGlobal, " "), s = t[2] ? t[2].replace(this.rules.other.hrefBrackets, "$1").replace(this.rules.inline.anyPunctuation, "$1") : "", r = t[3] ? t[3].substring(1, t[3].length - 1).replace(this.rules.inline.anyPunctuation, "$1") : t[3];
+      return { type: "def", tag: n, raw: L(t[0], `
+`), href: s, title: r };
+    }
+  }
+  table(e) {
+    let t = this.rules.block.table.exec(e);
+    if (!t || !this.rules.other.tableDelimiter.test(t[2])) return;
+    let n = se(t[1]), s = t[2].replace(this.rules.other.tableAlignChars, "").split("|"), r = t[3]?.trim() ? t[3].replace(this.rules.other.tableRowBlankLine, "").split(`
+`) : [], o = { type: "table", raw: L(t[0], `
+`), header: [], align: [], rows: [] };
+    if (n.length === s.length) {
+      for (let i of s) this.rules.other.tableAlignRight.test(i) ? o.align.push("right") : this.rules.other.tableAlignCenter.test(i) ? o.align.push("center") : this.rules.other.tableAlignLeft.test(i) ? o.align.push("left") : o.align.push(null);
+      for (let i = 0; i < n.length; i++) o.header.push({ text: n[i], tokens: this.lexer.inline(n[i]), header: true, align: o.align[i] });
+      for (let i of r) o.rows.push(se(i, o.header.length).map((u, a) => ({ text: u, tokens: this.lexer.inline(u), header: false, align: o.align[a] })));
+      return o;
+    }
+  }
+  lheading(e) {
+    let t = this.rules.block.lheading.exec(e);
+    if (t) {
+      let n = t[1].trim();
+      return { type: "heading", raw: L(t[0], `
+`), depth: t[2].charAt(0) === "=" ? 1 : 2, text: n, tokens: this.lexer.inline(n) };
+    }
+  }
+  paragraph(e) {
+    let t = this.rules.block.paragraph.exec(e);
+    if (t) {
+      let n = t[1].charAt(t[1].length - 1) === `
+` ? t[1].slice(0, -1) : t[1];
+      return { type: "paragraph", raw: t[0], text: n, tokens: this.lexer.inline(n) };
+    }
+  }
+  text(e) {
+    let t = this.rules.block.text.exec(e);
+    if (t) return { type: "text", raw: t[0], text: t[0], tokens: this.lexer.inline(t[0]) };
+  }
+  escape(e) {
+    let t = this.rules.inline.escape.exec(e);
+    if (t) return { type: "escape", raw: t[0], text: t[1] };
+  }
+  tag(e) {
+    let t = this.rules.inline.tag.exec(e);
+    if (t) return !this.lexer.state.inLink && this.rules.other.startATag.test(t[0]) ? this.lexer.state.inLink = true : this.lexer.state.inLink && this.rules.other.endATag.test(t[0]) && (this.lexer.state.inLink = false), !this.lexer.state.inRawBlock && this.rules.other.startPreScriptTag.test(t[0]) ? this.lexer.state.inRawBlock = true : this.lexer.state.inRawBlock && this.rules.other.endPreScriptTag.test(t[0]) && (this.lexer.state.inRawBlock = false), { type: "html", raw: t[0], inLink: this.lexer.state.inLink, inRawBlock: this.lexer.state.inRawBlock, block: false, text: t[0] };
+  }
+  link(e) {
+    let t = this.rules.inline.link.exec(e);
+    if (t) {
+      let n = t[0].charAt(0) === "!" ? 2 : 1;
+      if (!this.options.pedantic && we(e, t[1], n, this.rules)) return;
+      let s = t[2].trim();
+      if (!this.options.pedantic && this.rules.other.startAngleBracket.test(s)) {
+        if (!this.rules.other.endAngleBracket.test(s)) return;
+        let i = L(s.slice(0, -1), "\\");
+        if ((s.length - i.length) % 2 === 0) return;
+      } else {
+        let i = Te(t[2], "()");
+        if (i === -2) return;
+        if (i > -1) {
+          let a = (t[0].indexOf("!") === 0 ? 5 : 4) + t[1].length + i;
+          t[2] = t[2].substring(0, i), t[0] = t[0].substring(0, a).trim(), t[3] = "";
+        }
+      }
+      let r = t[2], o = "";
+      if (this.options.pedantic) {
+        let i = this.rules.other.pedanticHrefTitle.exec(r);
+        i && (r = i[1], o = i[3]);
+      } else o = t[3] ? t[3].slice(1, -1) : "";
+      return r = r.trim(), this.rules.other.startAngleBracket.test(r) && (this.options.pedantic && !this.rules.other.endAngleBracket.test(s) ? r = r.slice(1) : r = r.slice(1, -1)), Oe(t, { href: r && r.replace(this.rules.inline.anyPunctuation, "$1"), title: o && o.replace(this.rules.inline.anyPunctuation, "$1") }, t[0], this.lexer, this.rules);
+    }
+  }
+  reflink(e, t) {
+    let n;
+    if ((n = this.rules.inline.reflink.exec(e)) || (n = this.rules.inline.nolink.exec(e))) {
+      let s = n[0].charAt(0) === "!" ? 2 : 1;
+      if (!this.options.pedantic && we(e, n[1], s, this.rules)) return;
+      let r = (n[2] || n[1]).replace(this.rules.other.multipleSpaceGlobal, " "), o = t[q(r)];
+      if (!o) {
+        let i = n[0].charAt(0);
+        return { type: "text", raw: i, text: i };
+      }
+      return Oe(n, o, n[0], this.lexer, this.rules);
+    }
+  }
+  emStrong(e, t, n = "") {
+    let s = this.rules.inline.emStrongLDelim.exec(e);
+    if (!s || !s[1] && !s[2] && !s[3] && !s[4] || s[4] && n.match(this.rules.other.unicodeAlphaNumeric)) return;
+    if (!(s[1] || s[3] || "") || !n || this.rules.inline.punctuation.exec(n)) {
+      let o = [...s[0]].length - 1, i, u, a = o, p = 0, c = s[0][0], d = n === c, m = c === "*" ? this.rules.inline.emStrongRDelimAst : this.rules.inline.emStrongRDelimUnd;
+      for (m.lastIndex = 0, t = t.slice(-1 * e.length + o); (s = m.exec(t)) !== null; ) {
+        if (i = s[1] || s[2] || s[3] || s[4] || s[5] || s[6], !i) continue;
+        if (u = [...i].length, s[3] || s[4]) {
+          a += u;
+          continue;
+        } else if (s[5] || s[6]) {
+          if (o % 3 && !((o + u) % 3)) {
+            p += u;
+            continue;
+          }
+          if (d) break;
+        }
+        if (a -= u, a > 0) continue;
+        u = Math.min(u, u + a + p);
+        let b = [...s[0]][0].length, g = e.slice(0, o + s.index + b + u);
+        if (Math.min(o, u) % 2) {
+          let f2 = g.slice(1, -1);
+          return { type: "em", raw: g, text: f2, tokens: this.lexer.inlineTokens(f2) };
+        }
+        let w = g.slice(2, -2);
+        return { type: "strong", raw: g, text: w, tokens: this.lexer.inlineTokens(w) };
+      }
+    }
+  }
+  codespan(e) {
+    let t = this.rules.inline.code.exec(e);
+    if (t) {
+      let n = t[2].replace(this.rules.other.newLineCharGlobal, " "), s = this.rules.other.nonSpaceChar.test(n), r = this.rules.other.startingSpaceChar.test(n) && this.rules.other.endingSpaceChar.test(n);
+      return s && r && (n = n.substring(1, n.length - 1)), { type: "codespan", raw: t[0], text: n };
+    }
+  }
+  br(e) {
+    let t = this.rules.inline.br.exec(e);
+    if (t) return { type: "br", raw: t[0] };
+  }
+  del(e, t, n = "") {
+    let s = this.rules.inline.delLDelim.exec(e);
+    if (!s) return;
+    if (!(s[1] || "") || !n || this.rules.inline.punctuation.exec(n)) {
+      let o = [...s[0]].length - 1, i, u, a = o, p = this.rules.inline.delRDelim;
+      for (p.lastIndex = 0, t = t.slice(-1 * e.length + o); (s = p.exec(t)) !== null; ) {
+        if (i = s[1] || s[2] || s[3] || s[4] || s[5] || s[6], !i || (u = [...i].length, u !== o)) continue;
+        if (s[3] || s[4]) {
+          a += u;
+          continue;
+        }
+        if (a -= u, a > 0) continue;
+        u = Math.min(u, u + a);
+        let c = [...s[0]][0].length, d = e.slice(0, o + s.index + c + u), m = d.slice(o, -o);
+        return { type: "del", raw: d, text: m, tokens: this.lexer.inlineTokens(m) };
+      }
+    }
+  }
+  autolink(e) {
+    let t = this.rules.inline.autolink.exec(e);
+    if (t) {
+      let n, s;
+      return t[2] === "@" ? (n = t[1], s = "mailto:" + n) : (n = t[1], s = n), { type: "link", raw: t[0], text: n, href: s, autolink: true, tokens: [{ type: "text", raw: n, text: n }] };
+    }
+  }
+  url(e) {
+    let t;
+    if (t = this.rules.inline.url.exec(e)) {
+      let n, s;
+      if (t[2] === "@") n = t[0], s = "mailto:" + n;
+      else {
+        let r;
+        do
+          r = t[0], t[0] = this.rules.inline._backpedal.exec(t[0])?.[0] ?? "";
+        while (r !== t[0]);
+        n = t[0], t[1] === "www." ? s = "http://" + t[0] : s = t[0];
+      }
+      return { type: "link", raw: t[0], text: n, href: s, autolink: true, tokens: [{ type: "text", raw: n, text: n }] };
+    }
+  }
+  inlineText(e) {
+    let t = this.rules.inline.text.exec(e);
+    if (t) {
+      let n = this.lexer.state.inRawBlock;
+      return { type: "text", raw: t[0], text: n ? t[0] : Re(t[0]), escaped: n };
+    }
+  }
+};
+var R = class l {
+  tokens;
+  options;
+  state;
+  inlineQueue;
+  tokenizer;
+  constructor(e) {
+    this.tokens = [], this.tokens.links = /* @__PURE__ */ Object.create(null), this.options = e || y, this.options.tokenizer = this.options.tokenizer || new P(), this.tokenizer = this.options.tokenizer, this.tokenizer.options = this.options, this.tokenizer.lexer = this, this.inlineQueue = [], this.state = { inLink: false, inRawBlock: false, linkEmitted: false, top: true };
+    let t = { other: x, block: j.normal, inline: D.normal };
+    this.options.pedantic ? (t.block = j.pedantic, t.inline = D.pedantic) : this.options.gfm && (t.block = j.gfm, this.options.breaks ? t.inline = D.breaks : t.inline = D.gfm), this.tokenizer.rules = t;
+  }
+  static get rules() {
+    return { block: j, inline: D };
+  }
+  static lex(e, t) {
+    return new l(t).lex(e);
+  }
+  static lexInline(e, t) {
+    return new l(t).inlineTokens(e);
+  }
+  lex(e) {
+    e = e.replace(x.carriageReturn, `
+`), this.blockTokens(e, this.tokens);
+    for (let t = 0; t < this.inlineQueue.length; t++) {
+      let n = this.inlineQueue[t];
+      this.inlineTokens(n.src, n.tokens);
+    }
+    return this.inlineQueue = [], this.tokens;
+  }
+  blockTokens(e, t = [], n = false) {
+    this.tokenizer.lexer = this, this.options.pedantic && (e = e.replace(x.tabCharGlobal, "    ").replace(x.spaceLine, ""));
+    let s = 1 / 0;
+    for (; e; ) {
+      if (e.length < s) s = e.length;
+      else {
+        this.infiniteLoopError(e.charCodeAt(0));
+        break;
+      }
+      let r;
+      if (this.options.extensions?.block?.some((i) => (r = i.call({ lexer: this }, e, t)) ? (e = e.substring(r.raw.length), t.push(r), true) : false)) continue;
+      if (r = this.tokenizer.space(e)) {
+        e = e.substring(r.raw.length);
+        let i = t.at(-1);
+        r.raw.length === 1 && i !== void 0 ? i.raw += `
+` : t.push(r);
+        continue;
+      }
+      if (r = this.tokenizer.code(e)) {
+        e = e.substring(r.raw.length);
+        let i = t.at(-1);
+        i?.type === "paragraph" || i?.type === "text" ? (i.raw += (i.raw.endsWith(`
+`) ? "" : `
+`) + r.raw, i.text += `
+` + r.text, this.inlineQueue.at(-1).src = i.text) : t.push(r);
+        continue;
+      }
+      if (r = this.tokenizer.fences(e)) {
+        e = e.substring(r.raw.length), t.push(r);
+        continue;
+      }
+      if (r = this.tokenizer.heading(e)) {
+        e = e.substring(r.raw.length), t.push(r);
+        continue;
+      }
+      if (r = this.tokenizer.hr(e)) {
+        e = e.substring(r.raw.length), t.push(r);
+        continue;
+      }
+      if (r = this.tokenizer.blockquote(e)) {
+        e = e.substring(r.raw.length), t.push(r);
+        continue;
+      }
+      if (r = this.tokenizer.list(e)) {
+        e = e.substring(r.raw.length), t.push(r);
+        continue;
+      }
+      if (r = this.tokenizer.html(e)) {
+        e = e.substring(r.raw.length), t.push(r);
+        continue;
+      }
+      if (r = this.tokenizer.def(e)) {
+        e = e.substring(r.raw.length);
+        let i = t.at(-1);
+        i?.type === "paragraph" || i?.type === "text" ? (i.raw += (i.raw.endsWith(`
+`) ? "" : `
+`) + r.raw, i.text += `
+` + r.raw, this.inlineQueue.at(-1).src = i.text) : this.tokens.links[r.tag] || (this.tokens.links[r.tag] = { href: r.href, title: r.title }, t.push(r));
+        continue;
+      }
+      if (r = this.tokenizer.table(e)) {
+        e = e.substring(r.raw.length), t.push(r);
+        continue;
+      }
+      if (r = this.tokenizer.lheading(e)) {
+        e = e.substring(r.raw.length), t.push(r);
+        continue;
+      }
+      let o = e;
+      if (this.options.extensions?.startBlock) {
+        let i = 1 / 0, u = e.slice(1), a;
+        this.options.extensions.startBlock.forEach((p) => {
+          a = p.call({ lexer: this }, u), typeof a == "number" && a >= 0 && (i = Math.min(i, a));
+        }), i < 1 / 0 && i >= 0 && (o = e.substring(0, i + 1));
+      }
+      if (this.state.top && (r = this.tokenizer.paragraph(o))) {
+        let i = t.at(-1);
+        n && i?.type === "paragraph" ? (i.raw += (i.raw.endsWith(`
+`) ? "" : `
+`) + r.raw, i.text += `
+` + r.text, this.inlineQueue.pop(), this.inlineQueue.at(-1).src = i.text) : t.push(r), n = o.length !== e.length, e = e.substring(r.raw.length);
+        continue;
+      }
+      if (r = this.tokenizer.text(e)) {
+        e = e.substring(r.raw.length);
+        let i = t.at(-1);
+        i?.type === "text" ? (i.raw += (i.raw.endsWith(`
+`) ? "" : `
+`) + r.raw, i.text += `
+` + r.text, this.inlineQueue.pop(), this.inlineQueue.at(-1).src = i.text) : t.push(r);
+        continue;
+      }
+      if (e) {
+        this.infiniteLoopError(e.charCodeAt(0));
+        break;
+      }
+    }
+    return this.state.top = true, t;
+  }
+  inline(e, t = []) {
+    return this.inlineQueue.push({ src: e, tokens: t }), t;
+  }
+  linkInText(e) {
+    if (!e.includes("[")) return false;
+    let t = this.tokenizer.rules.inline.link;
+    for (let n of e.matchAll(this.tokenizer.rules.inline.blockSkip)) if (t.test(n[0]) && e.charAt(n.index - 1) !== "!") return true;
+    for (let n of e.matchAll(this.tokenizer.rules.inline.reflinkSearch)) {
+      let s = n[0], r = s.lastIndexOf("[");
+      if (!(s.charAt(0) === "!" || !Object.hasOwn(this.tokens.links, q(s.slice(r + 1, -1)))) && !(r > 1 && this.linkInText(s.slice(1, r - 1)))) return true;
+    }
+    return false;
+  }
+  inlineTokens(e, t = []) {
+    this.tokenizer.lexer = this;
+    let n = e;
+    if (this.tokens.links && e.includes("[")) {
+      let i = this.tokenizer.rules.inline.reflinkSearch, u = (a) => {
+        let p = a.lastIndexOf("[");
+        if (!Object.hasOwn(this.tokens.links, q(a.slice(p + 1, -1)))) return a;
+        if (p > 1 && a.charAt(0) !== "!") {
+          let c = a.slice(1, p - 1);
+          if (this.linkInText(c)) return "[" + c.replace(i, u) + "][" + "a".repeat(a.length - p - 2) + "]";
+        }
+        return "[" + "a".repeat(a.length - 2) + "]";
+      };
+      n = n.replace(i, u);
+    }
+    n = n.replace(this.tokenizer.rules.inline.anyPunctuation, (i) => "+".repeat(i.length)), n = n.replace(this.tokenizer.rules.inline.blockSkip, (i, u, a) => {
+      let p = a ? a.length : 0;
+      return i.slice(0, p) + "[" + "a".repeat(i.length - p - 2) + "]";
+    }), n = this.options.hooks?.emStrongMask?.call({ lexer: this }, n) ?? n;
+    let s = false, r = "", o = 1 / 0;
+    for (; e; ) {
+      if (e.length < o) o = e.length;
+      else {
+        this.infiniteLoopError(e.charCodeAt(0));
+        break;
+      }
+      s || (r = ""), s = false;
+      let i;
+      if (this.options.extensions?.inline?.some((a) => (i = a.call({ lexer: this }, e, t)) ? (e = e.substring(i.raw.length), t.push(i), true) : false)) continue;
+      if (i = this.tokenizer.escape(e)) {
+        e = e.substring(i.raw.length), t.push(i);
+        continue;
+      }
+      if (i = this.tokenizer.tag(e)) {
+        e = e.substring(i.raw.length), t.push(i);
+        continue;
+      }
+      if (i = this.tokenizer.link(e)) {
+        e = e.substring(i.raw.length), t.push(i);
+        continue;
+      }
+      if (i = this.tokenizer.reflink(e, this.tokens.links)) {
+        e = e.substring(i.raw.length);
+        let a = t.at(-1);
+        i.type === "text" && a?.type === "text" ? (a.raw += i.raw, a.text += i.text) : t.push(i);
+        continue;
+      }
+      if (i = this.tokenizer.emStrong(e, n, r)) {
+        e = e.substring(i.raw.length), t.push(i);
+        continue;
+      }
+      if (i = this.tokenizer.codespan(e)) {
+        e = e.substring(i.raw.length), t.push(i);
+        continue;
+      }
+      if (i = this.tokenizer.br(e)) {
+        e = e.substring(i.raw.length), t.push(i);
+        continue;
+      }
+      if (i = this.tokenizer.del(e, n, r)) {
+        e = e.substring(i.raw.length), t.push(i);
+        continue;
+      }
+      if (i = this.tokenizer.autolink(e)) {
+        e = e.substring(i.raw.length), t.push(i);
+        continue;
+      }
+      if (!this.state.inLink && (i = this.tokenizer.url(e))) {
+        e = e.substring(i.raw.length), t.push(i);
+        continue;
+      }
+      let u = e;
+      if (this.options.extensions?.startInline) {
+        let a = 1 / 0, p = e.slice(1), c;
+        this.options.extensions.startInline.forEach((d) => {
+          c = d.call({ lexer: this }, p), typeof c == "number" && c >= 0 && (a = Math.min(a, c));
+        }), a < 1 / 0 && a >= 0 && (u = e.substring(0, a + 1));
+      }
+      if (i = this.tokenizer.inlineText(u)) {
+        e = e.substring(i.raw.length), i.raw.slice(-1) !== "_" && (r = i.raw.slice(-1)), s = true;
+        let a = t.at(-1);
+        a?.type === "text" ? (a.raw += i.raw, a.text += i.text) : t.push(i);
+        continue;
+      }
+      if (e) {
+        this.infiniteLoopError(e.charCodeAt(0));
+        break;
+      }
+    }
+    return t;
+  }
+  infiniteLoopError(e) {
+    let t = "Infinite loop on byte: " + e;
+    if (this.options.silent) console.error(t);
+    else throw new Error(t);
+  }
+};
+var S = class {
+  options;
+  parser;
+  constructor(e) {
+    this.options = e || y;
+  }
+  space(e) {
+    return "";
+  }
+  code({ text: e, lang: t, escaped: n }) {
+    let s = (t || "").match(x.notSpaceStart)?.[0], r = e ? e.replace(x.endingNewline, "") + `
+` : "";
+    return s ? '<pre><code class="language-' + O(s) + '">' + (n ? r : O(r, true)) + `</code></pre>
+` : "<pre><code>" + (n ? r : O(r, true)) + `</code></pre>
+`;
+  }
+  blockquote({ tokens: e }) {
+    return `<blockquote>
+${this.parser.parse(e)}</blockquote>
+`;
+  }
+  html({ text: e }) {
+    return e;
+  }
+  def(e) {
+    return "";
+  }
+  heading({ tokens: e, depth: t }) {
+    return `<h${t}>${this.parser.parseInline(e)}</h${t}>
+`;
+  }
+  hr(e) {
+    return `<hr>
+`;
+  }
+  list(e) {
+    let t = e.ordered, n = e.start, s = "";
+    for (let i = 0; i < e.items.length; i++) {
+      let u = e.items[i];
+      s += this.listitem(u);
+    }
+    let r = t ? "ol" : "ul", o = t && n !== 1 ? ' start="' + n + '"' : "";
+    return "<" + r + o + `>
+` + s + "</" + r + `>
+`;
+  }
+  listitem(e) {
+    return `<li>${this.parser.parse(e.tokens)}</li>
+`;
+  }
+  checkbox({ checked: e }) {
+    return "<input " + (e ? 'checked="" ' : "") + 'disabled="" type="checkbox"> ';
+  }
+  paragraph({ tokens: e }) {
+    return `<p>${this.parser.parseInline(e)}</p>
+`;
+  }
+  table(e) {
+    let t = "", n = "";
+    for (let r = 0; r < e.header.length; r++) n += this.tablecell(e.header[r]);
+    t += this.tablerow({ text: n });
+    let s = "";
+    for (let r = 0; r < e.rows.length; r++) {
+      let o = e.rows[r];
+      n = "";
+      for (let i = 0; i < o.length; i++) n += this.tablecell(o[i]);
+      s += this.tablerow({ text: n });
+    }
+    return s && (s = `<tbody>${s}</tbody>`), `<table>
+<thead>
+` + t + `</thead>
+` + s + `</table>
+`;
+  }
+  tablerow({ text: e }) {
+    return `<tr>
+${e}</tr>
+`;
+  }
+  tablecell(e) {
+    let t = this.parser.parseInline(e.tokens), n = e.header ? "th" : "td";
+    return (e.align ? `<${n} align="${e.align}">` : `<${n}>`) + t + `</${n}>
+`;
+  }
+  strong({ tokens: e }) {
+    return `<strong>${this.parser.parseInline(e)}</strong>`;
+  }
+  em({ tokens: e }) {
+    return `<em>${this.parser.parseInline(e)}</em>`;
+  }
+  codespan({ text: e }) {
+    return `<code>${O(e, true)}</code>`;
+  }
+  br(e) {
+    return "<br>";
+  }
+  del({ tokens: e }) {
+    return `<del>${this.parser.parseInline(e)}</del>`;
+  }
+  link({ href: e, title: t, text: n, tokens: s, autolink: r }) {
+    let o = r ? O(n, true) : this.parser.parseInline(s), i = re(e);
+    if (i === null) return o;
+    e = O(i, r);
+    let u = '<a href="' + e + '"';
+    return t && (u += ' title="' + O(t) + '"'), u += ">" + o + "</a>", u;
+  }
+  image({ href: e, title: t, text: n, tokens: s }) {
+    s && (n = this.parser.parseInline(s, this.parser.textRenderer));
+    let r = re(e);
+    if (r === null) return O(n);
+    e = r;
+    let o = `<img src="${O(e)}" alt="${O(n)}"`;
+    return t && (o += ` title="${O(t)}"`), o += ">", o;
+  }
+  text(e) {
+    return "tokens" in e && e.tokens ? this.parser.parseInline(e.tokens) : "escaped" in e && e.escaped ? e.text : O(e.text);
+  }
+};
+var z = class {
+  strong({ text: e }) {
+    return e;
+  }
+  em({ text: e }) {
+    return e;
+  }
+  codespan({ text: e }) {
+    return e;
+  }
+  del({ text: e }) {
+    return e;
+  }
+  html({ text: e }) {
+    return e;
+  }
+  text({ text: e }) {
+    return e;
+  }
+  link({ text: e }) {
+    return "" + e;
+  }
+  image({ text: e }) {
+    return "" + e;
+  }
+  br() {
+    return "";
+  }
+  checkbox({ raw: e }) {
+    return e;
+  }
+};
+var T = class l2 {
+  options;
+  renderer;
+  textRenderer;
+  constructor(e) {
+    this.options = e || y, this.options.renderer = this.options.renderer || new S(), this.renderer = this.options.renderer, this.renderer.options = this.options, this.renderer.parser = this, this.textRenderer = new z();
+  }
+  static parse(e, t) {
+    return new l2(t).parse(e);
+  }
+  static parseInline(e, t) {
+    return new l2(t).parseInline(e);
+  }
+  parse(e) {
+    this.renderer.parser = this;
+    let t = "";
+    for (let n = 0; n < e.length; n++) {
+      let s = e[n];
+      if (this.options.extensions?.renderers?.[s.type]) {
+        let o = s, i = this.options.extensions.renderers[o.type].call({ parser: this }, o);
+        if (i !== false || !["space", "hr", "heading", "code", "table", "blockquote", "list", "checkbox", "html", "def", "paragraph", "text"].includes(o.type)) {
+          t += i || "";
+          continue;
+        }
+      }
+      let r = s;
+      switch (r.type) {
+        case "space": {
+          t += this.renderer.space(r);
+          break;
+        }
+        case "hr": {
+          t += this.renderer.hr(r);
+          break;
+        }
+        case "heading": {
+          t += this.renderer.heading(r);
+          break;
+        }
+        case "code": {
+          t += this.renderer.code(r);
+          break;
+        }
+        case "table": {
+          t += this.renderer.table(r);
+          break;
+        }
+        case "blockquote": {
+          t += this.renderer.blockquote(r);
+          break;
+        }
+        case "list": {
+          t += this.renderer.list(r);
+          break;
+        }
+        case "checkbox": {
+          t += this.renderer.checkbox(r);
+          break;
+        }
+        case "html": {
+          t += this.renderer.html(r);
+          break;
+        }
+        case "def": {
+          t += this.renderer.def(r);
+          break;
+        }
+        case "paragraph": {
+          t += this.renderer.paragraph(r);
+          break;
+        }
+        case "text": {
+          t += this.renderer.text(r);
+          break;
+        }
+        default: {
+          let o = 'Token with "' + r.type + '" type was not found.';
+          if (this.options.silent) return console.error(o), "";
+          throw new Error(o);
+        }
+      }
+    }
+    return t;
+  }
+  parseInline(e, t = this.renderer) {
+    this.renderer.parser = this;
+    let n = "";
+    for (let s = 0; s < e.length; s++) {
+      let r = e[s];
+      if (this.options.extensions?.renderers?.[r.type]) {
+        let i = this.options.extensions.renderers[r.type].call({ parser: this }, r);
+        if (i !== false || !["escape", "html", "link", "image", "checkbox", "strong", "em", "codespan", "br", "del", "text"].includes(r.type)) {
+          n += i || "";
+          continue;
+        }
+      }
+      let o = r;
+      switch (o.type) {
+        case "escape": {
+          n += t.text(o);
+          break;
+        }
+        case "html": {
+          n += t.html(o);
+          break;
+        }
+        case "link": {
+          n += t.link(o);
+          break;
+        }
+        case "image": {
+          n += t.image(o);
+          break;
+        }
+        case "checkbox": {
+          n += t.checkbox(o);
+          break;
+        }
+        case "strong": {
+          n += t.strong(o);
+          break;
+        }
+        case "em": {
+          n += t.em(o);
+          break;
+        }
+        case "codespan": {
+          n += t.codespan(o);
+          break;
+        }
+        case "br": {
+          n += t.br(o);
+          break;
+        }
+        case "del": {
+          n += t.del(o);
+          break;
+        }
+        case "text": {
+          n += t.text(o);
+          break;
+        }
+        default: {
+          let i = 'Token with "' + o.type + '" type was not found.';
+          if (this.options.silent) return console.error(i), "";
+          throw new Error(i);
+        }
+      }
+    }
+    return n;
+  }
+};
+var _ = class {
+  options;
+  block;
+  constructor(e) {
+    this.options = e || y;
+  }
+  static passThroughHooks = /* @__PURE__ */ new Set(["preprocess", "postprocess", "processAllTokens", "emStrongMask"]);
+  static passThroughHooksRespectAsync = /* @__PURE__ */ new Set(["preprocess", "postprocess", "processAllTokens"]);
+  preprocess(e) {
+    return e;
+  }
+  postprocess(e) {
+    return e;
+  }
+  processAllTokens(e) {
+    return e;
+  }
+  emStrongMask(e) {
+    return e;
+  }
+  provideLexer(e = this.block) {
+    return e ? R.lex : R.lexInline;
+  }
+  provideParser(e = this.block) {
+    return e ? T.parse : T.parseInline;
+  }
+};
+var F = class {
+  defaults = I();
+  options = this.setOptions;
+  parse = this.parseMarkdown(true);
+  parseInline = this.parseMarkdown(false);
+  Parser = T;
+  Renderer = S;
+  TextRenderer = z;
+  Lexer = R;
+  Tokenizer = P;
+  Hooks = _;
+  constructor(...e) {
+    this.use(...e);
+  }
+  walkTokens(e, t) {
+    let n = [];
+    for (let s of e) switch (n = n.concat(t.call(this, s)), s.type) {
+      case "table": {
+        let r = s;
+        for (let o of r.header) n = n.concat(this.walkTokens(o.tokens, t));
+        for (let o of r.rows) for (let i of o) n = n.concat(this.walkTokens(i.tokens, t));
+        break;
+      }
+      case "list": {
+        let r = s;
+        n = n.concat(this.walkTokens(r.items, t));
+        break;
+      }
+      default: {
+        let r = s;
+        this.defaults.extensions?.childTokens?.[r.type] ? this.defaults.extensions.childTokens[r.type].forEach((o) => {
+          let i = r[o].flat(1 / 0);
+          n = n.concat(this.walkTokens(i, t));
+        }) : r.tokens && (n = n.concat(this.walkTokens(r.tokens, t)));
+      }
+    }
+    return n;
+  }
+  use(...e) {
+    let t = this.defaults.extensions || { renderers: {}, childTokens: {} };
+    return e.forEach((n) => {
+      let s = { ...n };
+      if (s.async = this.defaults.async || s.async || false, n.extensions && (n.extensions.forEach((r) => {
+        if (!r.name) throw new Error("extension name required");
+        if ("renderer" in r) {
+          let o = t.renderers[r.name];
+          o ? t.renderers[r.name] = function(...i) {
+            let u = r.renderer.apply(this, i);
+            return u === false && (u = o.apply(this, i)), u;
+          } : t.renderers[r.name] = r.renderer;
+        }
+        if ("tokenizer" in r) {
+          if (!r.level || r.level !== "block" && r.level !== "inline") throw new Error("extension level must be 'block' or 'inline'");
+          let o = t[r.level];
+          o ? o.unshift(r.tokenizer) : t[r.level] = [r.tokenizer], r.start && (r.level === "block" ? t.startBlock ? t.startBlock.push(r.start) : t.startBlock = [r.start] : r.level === "inline" && (t.startInline ? t.startInline.push(r.start) : t.startInline = [r.start]));
+        }
+        "childTokens" in r && r.childTokens && (t.childTokens[r.name] = r.childTokens);
+      }), s.extensions = t), n.renderer) {
+        let r = this.defaults.renderer || new S(this.defaults);
+        for (let o in n.renderer) {
+          if (!(o in r)) throw new Error(`renderer '${o}' does not exist`);
+          if (["options", "parser"].includes(o)) continue;
+          let i = o, u = n.renderer[i], a = r[i];
+          r[i] = (...p) => {
+            let c = u.apply(r, p);
+            return c === false && (c = a.apply(r, p)), c || "";
+          };
+        }
+        s.renderer = r;
+      }
+      if (n.tokenizer) {
+        let r = this.defaults.tokenizer || new P(this.defaults);
+        for (let o in n.tokenizer) {
+          if (!(o in r)) throw new Error(`tokenizer '${o}' does not exist`);
+          if (["options", "rules", "lexer"].includes(o)) continue;
+          let i = o, u = n.tokenizer[i], a = r[i];
+          r[i] = (...p) => {
+            let c = u.apply(r, p);
+            return c === false && (c = a.apply(r, p)), c;
+          };
+        }
+        s.tokenizer = r;
+      }
+      if (n.hooks) {
+        let r = this.defaults.hooks || new _();
+        for (let o in n.hooks) {
+          if (!(o in r)) throw new Error(`hook '${o}' does not exist`);
+          if (["options", "block"].includes(o)) continue;
+          let i = o, u = n.hooks[i], a = r[i];
+          _.passThroughHooks.has(o) ? r[i] = (p) => {
+            if (this.defaults.async && _.passThroughHooksRespectAsync.has(o)) return (async () => {
+              let d = await u.call(r, p);
+              return a.call(r, d);
+            })();
+            let c = u.call(r, p);
+            return a.call(r, c);
+          } : r[i] = (...p) => {
+            if (this.defaults.async) return (async () => {
+              let d = await u.apply(r, p);
+              return d === false && (d = await a.apply(r, p)), d;
+            })();
+            let c = u.apply(r, p);
+            return c === false && (c = a.apply(r, p)), c;
+          };
+        }
+        s.hooks = r;
+      }
+      if (n.walkTokens) {
+        let r = this.defaults.walkTokens, o = n.walkTokens;
+        s.walkTokens = function(i) {
+          let u = [];
+          return u.push(o.call(this, i)), r && (u = u.concat(r.call(this, i))), u;
+        };
+      }
+      this.defaults = { ...this.defaults, ...s };
+    }), this;
+  }
+  setOptions(e) {
+    return this.defaults = { ...this.defaults, ...e }, this;
+  }
+  lexer(e, t) {
+    return R.lex(e, t ?? this.defaults);
+  }
+  parser(e, t) {
+    return T.parse(e, t ?? this.defaults);
+  }
+  parseMarkdown(e) {
+    return (n, s) => {
+      let r = { ...s }, o = { ...this.defaults, ...r }, i = this.onError(!!o.silent, !!o.async);
+      if (this.defaults.async === true && r.async === false) return i(new Error("marked(): The async option was set to true by an extension. Remove async: false from the parse options object to return a Promise."));
+      if (typeof n > "u" || n === null) return i(new Error("marked(): input parameter is undefined or null"));
+      if (typeof n != "string") return i(new Error("marked(): input parameter is of type " + Object.prototype.toString.call(n) + ", string expected"));
+      if (o.hooks && (o.hooks.options = o, o.hooks.block = e), o.async) return (async () => {
+        let u = o.hooks ? await o.hooks.preprocess(n) : n, p = await (o.hooks ? await o.hooks.provideLexer(e) : e ? R.lex : R.lexInline)(u, o), c = o.hooks ? await o.hooks.processAllTokens(p) : p;
+        o.walkTokens && await Promise.all(this.walkTokens(c, o.walkTokens));
+        let m = await (o.hooks ? await o.hooks.provideParser(e) : e ? T.parse : T.parseInline)(c, o);
+        return o.hooks ? await o.hooks.postprocess(m) : m;
+      })().catch(i);
+      try {
+        o.hooks && (n = o.hooks.preprocess(n));
+        let a = (o.hooks ? o.hooks.provideLexer(e) : e ? R.lex : R.lexInline)(n, o);
+        o.hooks && (a = o.hooks.processAllTokens(a)), o.walkTokens && this.walkTokens(a, o.walkTokens);
+        let c = (o.hooks ? o.hooks.provideParser(e) : e ? T.parse : T.parseInline)(a, o);
+        return o.hooks && (c = o.hooks.postprocess(c)), c;
+      } catch (u) {
+        return i(u);
+      }
+    };
+  }
+  onError(e, t) {
+    return (n) => {
+      if (n.message += `
+Please report this to https://github.com/markedjs/marked.`, e) {
+        let s = "<p>An error occurred:</p><pre>" + O(n.message + "", true) + "</pre>";
+        return t ? Promise.resolve(s) : s;
+      }
+      if (t) return Promise.reject(n);
+      throw n;
+    };
+  }
+};
+var E = new F();
+function k(l3, e) {
+  return E.parse(l3, e);
+}
+k.options = k.setOptions = function(l3) {
+  return E.setOptions(l3), k.defaults = E.defaults, W(k.defaults), k;
+};
+k.getDefaults = I;
+k.defaults = y;
+function Pt(...l3) {
+  return E.use(...l3), k.defaults = E.defaults, W(k.defaults), k;
+}
+k.use = Pt;
+k.walkTokens = function(l3, e) {
+  return E.walkTokens(l3, e);
+};
+k.parseInline = E.parseInline;
+k.Parser = T;
+k.parser = T.parse;
+k.Renderer = S;
+k.TextRenderer = z;
+k.Lexer = R;
+k.lexer = R.lex;
+k.Tokenizer = P;
+k.Hooks = _;
+k.parse = k;
+var gn = k.options;
+var fn = k.setOptions;
+var mn = k.walkTokens;
+var xn = k.parseInline;
+var Rn = T.parse;
+var Tn = R.lex;
+
+// src/markdown.js
+var marked = new F({ gfm: true });
+var STATUS = {
+  ok: { cls: "ok", icon: "\u2713" },
+  no: { cls: "no", icon: "\u2717" },
+  warn: { cls: "warn", icon: "!" }
+};
+var STATUS_ALIAS = { "\u2713": "ok", "\u2714": "ok", "\u2717": "no", "\u2718": "no", "\u26A0": "warn" };
+function statusHtml(word, label = "") {
+  const kind = STATUS[STATUS_ALIAS[word] ?? word];
+  if (!kind) return null;
+  const text = label.trim();
+  return `<span class="am-status am-status--${kind.cls}"><span class="am-status-icon" aria-hidden="true">${kind.icon}</span>${text}</span>`;
+}
+var CELL_STATUS = /<td([^>]*)>\s*(ok|no|warn|✓|✔|✗|✘|⚠)(?:\s+([^<]*?))?\s*<\/td>/g;
+function decorate(html) {
+  return html.replace(/<table>/g, '<div class="am-table-wrap"><table>').replace(/<\/table>/g, "</table></div>").replace(CELL_STATUS, (_2, attrs, word, label = "") => `<td${attrs}>${statusHtml(word, label)}</td>`);
+}
+function md(text) {
+  return decorate(marked.parse(String(text ?? "")));
+}
+function mdInline(text) {
+  return marked.parseInline(String(text ?? ""));
+}
+
+// src/svg/text.js
+var CJK_RE = /[⺀-鿿가-힯豈-﫿︰-﹏＀-￯　-〿]/;
+var NARROW = /* @__PURE__ */ new Set([..."iljtfrI.,:;|!'`()[]{}"]);
+var WIDE = /* @__PURE__ */ new Set([..."mwMWOQGD@%&"]);
+var HIRAGANA_RE = /[\u3040-\u309f]/;
+var HIRAGANA_SHARE = 0.05;
+function isJapanese(text) {
+  let hira = 0;
+  let cjk = 0;
+  for (const ch of String(text)) {
+    if (HIRAGANA_RE.test(ch)) hira++;
+    if (CJK_RE.test(ch)) cjk++;
+  }
+  return hira > 0 && hira / cjk >= HIRAGANA_SHARE;
+}
+function isCJK(ch) {
+  return CJK_RE.test(ch);
+}
+function charWidth(ch, mono) {
+  if (isCJK(ch)) return 1;
+  if (mono) return 0.6;
+  if (ch === " ") return 0.3;
+  if (NARROW.has(ch)) return 0.32;
+  if (WIDE.has(ch)) return 0.86;
+  if (ch >= "A" && ch <= "Z") return 0.68;
+  return 0.56;
+}
+function measure(str, size = 13, { mono = false } = {}) {
+  let units = 0;
+  for (const ch of String(str ?? "")) units += charWidth(ch, mono);
+  return Math.round(units * size * 100) / 100;
+}
+function tokenize(str) {
+  return String(str).match(/[⺀-鿿가-힯豈-﫿︰-﹏＀-￯　-〿]|[^\s⺀-鿿가-힯豈-﫿︰-﹏＀-￯　-〿]+|\s+/g) ?? [];
+}
+function wrap(str, maxWidth, size = 13, opts = {}) {
+  const lines = [];
+  let line = "";
+  for (const tok of tokenize(str)) {
+    if (/^\s+$/.test(tok)) {
+      if (line) line += " ";
+      continue;
+    }
+    const candidate = line + tok;
+    if (line.trim() && measure(candidate, size, opts) > maxWidth) {
+      lines.push(line.trimEnd());
+      line = tok;
+    } else {
+      line = candidate;
+    }
+  }
+  lines.push(line.trimEnd());
+  return lines;
+}
+var ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+function esc(str) {
+  return String(str ?? "").replace(/[&<>"']/g, (c) => ESC[c]);
+}
+
+// src/components/error.js
+var ComponentError = class extends Error {
+  constructor(message, line = 0) {
+    super(message);
+    this.name = "ComponentError";
+    this.line = line;
+  }
+};
+function contentLines(text) {
+  return String(text).split("\n").map((raw, i) => ({ raw, text: raw.trim(), line: i + 1 })).filter((l3) => l3.text && !l3.text.startsWith("//"));
+}
+function fields(text) {
+  return text.split("|").map((s) => s.trim());
+}
+
+// src/components/callout.js
+var KINDS = /* @__PURE__ */ new Set(["info", "ok", "warn", "err"]);
+var callout_default = {
+  name: "callout",
+  summary: "\u7ED3\u8BBA / \u63D0\u793A / \u8B66\u544A\u6761",
+  syntax: `\`\`\`callout <info|ok|warn|err> [\u6807\u9898]
+\u6B63\u6587\uFF08Markdown\uFF09
+\`\`\`
+- \u9996\u4E2A\u53C2\u6570\u4E0D\u662F\u7C7B\u578B\u65F6\uFF0C\u6574\u4E2A\u53C2\u6570\u4E32\u4F5C\u4E3A\u6807\u9898\uFF0C\u7C7B\u578B\u4E3A info\u3002`,
+  example: "```callout warn \u6CE8\u610F\n\u5148\u5173\u95ED\u9600\u95E8\uFF0C\u518D\u62C6\u5378\u6CF5\u3002\n```",
+  render(text, { args }) {
+    const [first = "", ...rest] = args.split(/\s+/).filter(Boolean);
+    const kind = KINDS.has(first) ? first : "info";
+    const title = (KINDS.has(first) ? rest.join(" ") : args).trim();
+    if (!title && !text.trim()) throw new ComponentError("callout \u9700\u8981\u6807\u9898\u6216\u6B63\u6587", 1);
+    const head = title ? `<div class="am-callout-title">${esc(title)}</div>` : "";
+    const body = text.trim() ? `<div class="am-callout-body am-md">${md(text)}</div>` : "";
+    return `<div class="am-callout am-callout--${kind}" role="note">${head}${body}</div>`;
+  }
+};
+
+// src/components/kv.js
+var kv_default = {
+  name: "kv",
+  summary: "\u952E\u503C\u683C / \u6807\u9898\u680F\uFF08\u5143\u4FE1\u606F\uFF09",
+  syntax: `\`\`\`kv [cols=2]
+\u952E: \u503C
+* \u5BBD\u683C\u952E: \u503C        \u2190 * \u5F00\u5934\uFF1A\u5360\u6EE1\u6574\u884C\uFF0C\u5B57\u53F7\u66F4\u5927
+\`\`\`
+- \u6309\u7B2C\u4E00\u4E2A\u5192\u53F7\uFF08: \u6216 \uFF1A\uFF09\u5207\u5206\uFF0C\u503C\u91CC\u53EF\u4EE5\u518D\u51FA\u73B0\u5192\u53F7\u3002`,
+  example: "```kv cols=2\n* Title: Simplified Technical English\nSpecification: ASD-STE100\nOwner: ASD\n```",
+  render(text, { args }) {
+    const cols = Math.max(1, Math.min(Number(parseAttrs(args).cols) || 2, 6));
+    const cells = contentLines(text).map(({ text: t, line }) => {
+      const wide = t.startsWith("*");
+      const body = wide ? t.slice(1).trim() : t;
+      const m = body.match(/^([^:：]+)[:：]\s*(.*)$/);
+      if (!m) throw new ComponentError(`kv \u884C\u7F3A\u5C11\u5192\u53F7\uFF1A"${t}"\uFF0C\u5E94\u4E3A \u952E: \u503C`, line);
+      return `<div class="am-kv-cell${wide ? " am-kv-cell--wide" : ""}"><dt>${esc(m[1].trim())}</dt><dd>${mdInline(m[2])}</dd></div>`;
+    });
+    if (!cells.length) throw new ComponentError("kv \u81F3\u5C11\u9700\u8981\u4E00\u884C \u952E: \u503C", 1);
+    return `<dl class="am-kv" style="--kv-cols: ${cols}">${cells.join("")}</dl>`;
+  }
+};
+
+// src/components/timeline.js
+var timeline_default = {
+  name: "timeline",
+  summary: "\u65F6\u95F4\u7EBF / \u9636\u6BB5\u6F14\u8FDB",
+  syntax: `\`\`\`timeline [h|v]
+\u65F6\u95F4 | \u6807\u9898 | \u8BF4\u660E\uFF08\u53EF\u9009\uFF09
+*\u65F6\u95F4 | \u6807\u9898          \u2190 * \u5F00\u5934\uFF1A\u9AD8\u4EAE\u8BE5\u8282\u70B9
+\`\`\`
+- \u9ED8\u8BA4 \u22646 \u9879\u6A2A\u5411\u3001>6 \u9879\u7EB5\u5411\uFF1B\u53C2\u6570 h / v \u5F3A\u5236\u65B9\u5411\u3002`,
+  example: "```timeline\n1979 | AECMA \u542F\u52A8\u7814\u7A76\n1986 | \u9996\u7248\u6307\u5357\u53D1\u5E03\n*Now | \u514D\u8D39\u4E0B\u8F7D | \u7531 ASD STEMG \u7EF4\u62A4\n```",
+  render(text, { args }) {
+    const items = contentLines(text).map(({ text: t, line }) => {
+      const parts = fields(t);
+      if (parts.length < 2 || !parts[1]) throw new ComponentError(`timeline \u884C\u683C\u5F0F\u5E94\u4E3A \u65F6\u95F4 | \u6807\u9898 | \u8BF4\u660E\uFF1A"${t}"`, line);
+      const hi = parts[0].startsWith("*");
+      return { when: hi ? parts[0].slice(1).trim() : parts[0], title: parts[1], detail: parts[2] ?? "", hi };
+    });
+    if (!items.length) throw new ComponentError("timeline \u81F3\u5C11\u9700\u8981\u4E00\u9879", 1);
+    const vertical = /\bv(ertical)?\b/.test(args) || !/\bh(orizontal)?\b/.test(args) && items.length > 6;
+    const lis = items.map((it3) => `<li class="am-tl-item${it3.hi ? " am-tl-item--hi" : ""}"><span class="am-tl-when">${esc(it3.when)}</span><span class="am-tl-dot"></span><span class="am-tl-title">${mdInline(it3.title)}</span>${it3.detail ? `<span class="am-tl-text">${mdInline(it3.detail)}</span>` : ""}</li>`);
+    return vertical ? `<ol class="am-timeline am-timeline--v">${lis.join("")}</ol>` : `<ol class="am-timeline am-timeline--h" style="--n: ${items.length}">${lis.join("")}</ol>`;
+  }
+};
+
+// src/components/annot.js
+var SEG = /\[([^\]]+)\]\{(!?)([^}]*)\}/g;
+var TEXT_SIZE = 14;
+var NOTE_SIZE = 11;
+var NOTE_GAP = 10;
+var annot_default = {
+  name: "annot",
+  summary: "\u53E5\u5B50\u9010\u6BB5\u6807\u6CE8\uFF08\u4E0B\u5212\u62EC\u53F7 + \u6CE8\u91CA\uFF09",
+  syntax: `\`\`\`annot
+# \u5C0F\u6807\u9898 | \u53F3\u4FA7\u8BF4\u660E\uFF08\u53EF\u9009\uFF09
+\u53E5\u5B50\u6587\u672C\uFF0C[\u88AB\u6807\u6CE8\u7247\u6BB5]{\u6CE8\u91CA}\uFF0C[\u9519\u8BEF\u7247\u6BB5]{!\u7EA2\u8272\u6CE8\u91CA}\u3002
+> \u5E95\u90E8\u8BF4\u660E\uFF08\u53EF\u9009\uFF09
+\`\`\`
+- \u4E00\u4E2A # \u5F00\u542F\u4E00\u7EC4\uFF1B\u540C\u7EC4\u53EF\u6709\u591A\u53E5\u3002\u6CE8\u91CA\u91CD\u53E0\u65F6\u81EA\u52A8\u9519\u884C\u3002`,
+  example: '```annot\n# 1 \u7A0B\u5E8F\u6027\u53E5\u5B50 | 13 words, limit 20\nMake sure that [the hydraulic reservoir]{Technical name} is [full]{!Not "replenished"}.\n> \u4E00\u53E5\u53EA\u5199\u4E00\u6761\u6307\u4EE4\n```',
+  render(text) {
+    const groups = [];
+    let group = null;
+    const ensure = () => group ?? (group = pushGroup(groups, {}));
+    for (const { text: t, line } of contentLines(text)) {
+      if (t.startsWith("#")) {
+        const [title, meta = ""] = fields(t.replace(/^#+\s*/, ""));
+        group = pushGroup(groups, { title, meta });
+      } else if (t.startsWith(">")) {
+        ensure().captions.push(t.replace(/^>\s*/, ""));
+      } else {
+        ensure().lines.push(sentenceHtml(t, line));
+      }
+    }
+    if (!groups.length) throw new ComponentError("annot \u81F3\u5C11\u9700\u8981\u4E00\u4E2A\u53E5\u5B50", 1);
+    return groups.map(groupHtml).join("");
+  }
+};
+function pushGroup(groups, { title = "", meta = "" }) {
+  const g = { title, meta, lines: [], captions: [] };
+  groups.push(g);
+  return g;
+}
+function groupHtml(g) {
+  const head = g.title || g.meta ? `<div class="am-annot-head"><span>${esc(g.title)}</span>${g.meta ? `<span class="am-annot-meta">${esc(g.meta)}</span>` : ""}</div>` : "";
+  const lines = g.lines.map((l3) => `<div class="am-annot-scroll">${l3}</div>`).join("");
+  const caps = g.captions.map((c) => `<div class="am-annot-caption">${esc(c)}</div>`).join("");
+  return `<div class="am-annot">${head}${lines}${caps}</div>`;
+}
+function sentenceHtml(sentence, line) {
+  const stripped = sentence.replace(SEG, "");
+  if (/\[[^\]]*\]\{|\]\{[^}]*$/.test(stripped)) {
+    throw new ComponentError(`annot \u6807\u6CE8\u672A\u95ED\u5408\uFF0C\u5E94\u4E3A [\u7247\u6BB5]{\u6CE8\u91CA}\uFF1A"${sentence}"`, line);
+  }
+  const rows = [];
+  let out = "";
+  let plain = "";
+  let last = 0;
+  for (const m of sentence.matchAll(SEG)) {
+    const before = sentence.slice(last, m.index);
+    out += esc(before);
+    plain += before;
+    const [, seg, bang, note] = m;
+    const x2 = measure(plain, TEXT_SIZE, { mono: true });
+    const noteHtml = note.trim() ? `<span class="am-seg-n" style="--row: ${placeNote(rows, x2, x2 + measure(note, NOTE_SIZE) + NOTE_GAP)}">${esc(note.trim())}</span>` : "";
+    out += `<span class="am-seg${bang ? " am-seg--err" : ""}"><span class="am-seg-t">${esc(seg)}</span>${noteHtml}</span>`;
+    plain += seg;
+    last = m.index + m[0].length;
+  }
+  out += esc(sentence.slice(last));
+  const wrapCls = rows.length ? "" : " am-annot-line--wrap";
+  return `<div class="am-annot-line${wrapCls}" style="--rows: ${rows.length}">${out}</div>`;
+}
+function placeNote(rows, start, end) {
+  const idx = rows.findIndex((ranges) => ranges.every(([s, e]) => end <= s || start >= e));
+  if (idx !== -1) {
+    rows[idx].push([start, end]);
+    return idx;
+  }
+  rows.push([[start, end]]);
+  return rows.length - 1;
+}
+
+// src/components/tree.js
+var tree_default = {
+  name: "tree",
+  summary: "\u5C42\u7EA7\u7ED3\u6784\u6811\uFF08\u7EC4\u7EC7\u56FE / \u7F29\u8FDB\u5217\u8868\uFF09",
+  syntax: `\`\`\`tree [list]
+\u6839\u8282\u70B9 | \u526F\u6807\u9898
+  \u5B50\u8282\u70B9
+    \u5B59\u8282\u70B9 | \u4E00\u884C\u8BF4\u660E
+  *\u9AD8\u4EAE\u5B50\u8282\u70B9
+\`\`\`
+- \u7528\u7F29\u8FDB\uFF08\u7A7A\u683C\u6216 Tab\uFF09\u8868\u8FBE\u5C42\u7EA7\uFF1B"\u6807\u7B7E | \u8BF4\u660E" \u7ED9\u51FA\u7070\u8272\u8BF4\u660E\u3002
+- \u5355\u6839\u4E14 2~4 \u4E2A\u5B50\u8282\u70B9 \u2192 \u7EC4\u7EC7\u56FE\uFF1B\u5B50\u8282\u70B9\u66F4\u591A\u6216\u53C2\u6570 list \u2192 \u7F29\u8FDB\u5217\u8868\uFF1B\u591A\u4E2A\u6839 \u2192 \u5E76\u6392\u3002
+- \u6807\u7B7E\u652F\u6301\u884C\u5185 Markdown\uFF0C\u5982 \`Section 1\` Words\u3002`,
+  example: "```tree\nASD-STE100 | Simplified Technical English\n  Part 1: Writing rules\n    `Section 1` Words\n  Part 2: Dictionary\n    Approved words | \u4E00\u8BCD\u4E00\u4E49\n```",
+  render(text, { args }) {
+    const roots = buildTree(text);
+    if (!roots.length) throw new ComponentError("tree \u81F3\u5C11\u9700\u8981\u4E00\u4E2A\u8282\u70B9", 1);
+    const listMode = /\blist\b/.test(args);
+    if (roots.length === 1) {
+      const [root] = roots;
+      const n = root.children.length;
+      if (!listMode && n >= 2 && n <= 4) return orgHtml(root);
+      return `<div class="am-tree">${rootBox(root, true)}${listHtml(root.children)}</div>`;
+    }
+    if (!listMode && roots.length <= 4) {
+      return `<div class="am-tree"><div class="am-tree-cols am-tree-cols--free" style="--n: ${roots.length}">${roots.map(colHtml).join("")}</div></div>`;
+    }
+    return `<div class="am-tree">${listHtml(roots)}</div>`;
+  }
+};
+function buildTree(text) {
+  const roots = [];
+  const stack = [];
+  let step = 0;
+  for (const raw of String(text).split("\n")) {
+    if (!raw.trim()) continue;
+    const indent = raw.replace(/\t/g, "  ").match(/^ */)[0].length;
+    const node = { ...parseLabel(raw.trim()), indent, step: step++, children: [] };
+    while (stack.length && stack.at(-1).indent >= indent) stack.pop();
+    (stack.length ? stack.at(-1).children : roots).push(node);
+    stack.push(node);
+  }
+  return roots;
+}
+function parseLabel(t) {
+  const hi = t.startsWith("*");
+  const [label, sub = ""] = fields(hi ? t.slice(1) : t);
+  return { label, sub, hi };
+}
+var labelHtml = (label) => mdInline(label).replace(/^<code>([^<]*)<\/code>(?=\s*\S)/, '<span class="am-tree-tag">$1</span>');
+var vattrs = (n) => ` data-key="${esc(n.label)}" data-step="${n.step}"`;
+var boxInner = (n) => `${labelHtml(n.label)}${n.sub ? `<small>${mdInline(n.sub)}</small>` : ""}`;
+function rootBox(root, solo = false) {
+  return `<div class="am-tree-root${solo ? " am-tree-root--solo" : ""}"><div class="am-tree-box am-tree-box--root"${vattrs(root)}>${boxInner(root)}</div></div>`;
+}
+function colHtml(node) {
+  const children = node.children.length ? listHtml(node.children) : "";
+  return `<div class="am-tree-col"><div class="am-tree-box${node.hi ? " am-tree-box--hi" : ""}"${vattrs(node)}>${boxInner(node)}</div>${children}</div>`;
+}
+function orgHtml(root) {
+  return `<div class="am-tree">${rootBox(root)}<div class="am-tree-cols" style="--n: ${root.children.length}">${root.children.map(colHtml).join("")}</div></div>`;
+}
+function listHtml(nodes) {
+  return `<ul class="am-tree-list">${nodes.map(liHtml).join("")}</ul>`;
+}
+function liHtml(n) {
+  const sub = n.sub ? `<span class="am-tree-sub">${mdInline(n.sub)}</span>` : "";
+  const kids = n.children.length ? `<ul>${n.children.map(liHtml).join("")}</ul>` : "";
+  return `<li${n.hi ? ' class="am-tree-hi"' : ""}${vattrs(n)}><span class="am-tree-label">${labelHtml(n.label)}</span>${sub}${kids}</li>`;
+}
+
+// src/components/limits.js
+var NICE_MAX = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+var NICE_STEP = [1, 2, 2.5, 5, 10];
+function niceScale(peak) {
+  if (!Number.isFinite(peak) || peak <= 0) return { max: 1, step: 1 };
+  const target = peak * 1.4;
+  const pow = 10 ** Math.floor(Math.log10(target));
+  const integral = Number.isInteger(peak);
+  const nice = NICE_MAX.map((m) => m * pow).find((m) => m >= target - 1e-9) ?? 10 * pow;
+  const max = integral ? Math.ceil(nice) : nice;
+  const stepPow = 10 ** Math.floor(Math.log10(max));
+  const step = [...NICE_STEP.map((s) => s * stepPow / 10), ...NICE_STEP.map((s) => s * stepPow)].find((s) => max / s <= 7 && Number.isInteger(round(max / s)) && (integral ? s >= 1 : true)) ?? max;
+  return { max: round(max), step: round(step) };
+}
+var round = (n) => Math.round(n * 1e3) / 1e3;
+var pct = (v, max) => `${Math.round(v / max * 1e4) / 100}%`;
+var NUM = /^(?:max\s+)?(-?\d+(?:\.\d+)?)$/i;
+var limits_default = {
+  name: "limits",
+  summary: "\u6570\u503C vs \u4E0A\u9650 \u6761\u5F62\u5BF9\u7167",
+  syntax: `\`\`\`limits
+\u6807\u7B7E | \u5F53\u524D\u503C / \u4E0A\u9650 | \u5355\u4F4D\uFF08\u53EF\u9009\uFF09 | \u5907\u6CE8\uFF08\u53EF\u9009\uFF09
+\u6807\u7B7E | \u4E0A\u9650 | \u5355\u4F4D          \u2190 \u53EA\u7ED9\u4E0A\u9650\uFF1A\u6761\u586B\u5145\u5230\u4E0A\u9650
+\`\`\`
+- \u5F53\u524D\u503C\u8D85\u8FC7\u4E0A\u9650\u65F6\u6574\u884C\u6807\u7EA2\u3002\u4E0A\u9650\u53EF\u5199\u6210 "max 20"\u3002`,
+  example: "```limits\n\u7A0B\u5E8F\u6027\u53E5\u5B50 | 13 / 20 | words\n\u63CF\u8FF0\u6027\u53E5\u5B50 | max 25 | words\n\u540D\u8BCD\u7C07 | 4 / 3 | words | \u8D85\u9650\n```",
+  render(text) {
+    const rows = contentLines(text).map(({ text: t, line }) => parseRow(t, line));
+    if (!rows.length) throw new ComponentError("limits \u81F3\u5C11\u9700\u8981\u4E00\u884C", 1);
+    return `<div class="am-limits">${rows.map(rowHtml).join("")}</div>`;
+  }
+};
+function parseRow(t, line) {
+  const [label, spec = "", unit = "", note = ""] = fields(t);
+  const [a, b] = spec.split("/").map((s) => s.trim());
+  const nums = (b === void 0 ? [a] : [a, b]).map((s) => s?.match(NUM)?.[1]);
+  if (!spec || nums.some((n) => n === void 0)) {
+    throw new ComponentError(`limits \u884C\u683C\u5F0F\u5E94\u4E3A \u6807\u7B7E | \u5F53\u524D\u503C / \u4E0A\u9650 | \u5355\u4F4D\uFF1A"${t}"`, line);
+  }
+  const [value, limit] = b === void 0 ? [null, Number(nums[0])] : nums.map(Number);
+  return { label, value, limit, unit, note };
+}
+function rowHtml({ label, value, limit, unit, note }) {
+  const { max, step } = niceScale(Math.max(limit, value ?? 0));
+  const shown = value ?? limit;
+  const over = value !== null && value > limit;
+  const valText = `${value !== null ? `${value} / ` : ""}max ${limit}${unit ? ` ${unit}` : ""}`;
+  const ticks = [];
+  if (step > 0 && max > 0) {
+    for (let v = 0; v <= max + 1e-9; v += step) ticks.push(`<span style="left: ${pct(round(v), max)}">${round(v)}</span>`);
+  }
+  return `<div class="am-lim${over ? " is-over" : ""}">
+<div class="am-lim-head"><span>${esc(label)}${note ? `<span class="am-lim-note">${esc(note)}</span>` : ""}</span><span class="am-lim-val">${esc(valText)}</span></div>
+<div class="am-lim-track"><div class="am-lim-fill" style="width: ${pct(shown, max)}"></div><div class="am-lim-mark" style="left: ${pct(limit, max)}"></div></div>
+<div class="am-lim-ticks" aria-hidden="true">${ticks.join("")}</div>
+</div>`;
+}
+
+// src/svg/shapes.js
+var f = (n) => String(Math.round(n * 10) / 10);
+var mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+function smoothPath(points) {
+  const [first, ...rest] = points;
+  if (rest.length === 1) return `M${f(first.x)},${f(first.y)} L${f(rest[0].x)},${f(rest[0].y)}`;
+  const parts = [`M${f(first.x)},${f(first.y)}`];
+  const m0 = mid(points[0], points[1]);
+  parts.push(`L${f(m0.x)},${f(m0.y)}`);
+  for (let i = 1; i < points.length - 1; i++) {
+    const m = mid(points[i], points[i + 1]);
+    parts.push(`Q${f(points[i].x)},${f(points[i].y)} ${f(m.x)},${f(m.y)}`);
+  }
+  const last = points.at(-1);
+  parts.push(`L${f(last.x)},${f(last.y)}`);
+  return parts.join(" ");
+}
+function arrowDefs(uid) {
+  return `<defs><marker id="${uid}-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="am-arrow" d="M0,0 L10,5 L0,10 z"/></marker></defs>`;
+}
+function textLines(lines, cx, cy, lineHeight, attrs = "") {
+  const top = cy - (lines.length - 1) * lineHeight / 2;
+  return lines.map((line, i) => `<text x="${f(cx)}" y="${f(top + i * lineHeight)}" text-anchor="middle" dominant-baseline="central"${attrs}>${esc(line)}</text>`).join("");
+}
+function svgOpen(width, height, label) {
+  const w = Math.ceil(width);
+  const h2 = Math.ceil(height);
+  return `<svg viewBox="0 0 ${w} ${h2}" width="${w}" height="${h2}" role="img" aria-label="${esc(label)}" xmlns="http://www.w3.org/2000/svg">`;
+}
+
+// src/components/sequence.js
+var FS = 13;
+var LH = 16;
+var ACTOR_H = 34;
+var TOP = 8;
+var MARGIN = 12;
+var LABEL_MAX = 240;
+var RE = {
+  participants: /^participants?\s*[:：]\s*(.+)$/i,
+  note: /^note\s+([^:：]+)[:：]\s*(.+)$/i,
+  divider: /^==\s*(.+?)\s*==$/,
+  msg: /^([^:：]+?)\s*(-->|->)\s*([^:：]+?)\s*(?:[:：]\s*(.*))?$/
+};
+function parseSequence(text) {
+  const participants = [];
+  const add = (p) => {
+    if (!participants.includes(p)) participants.push(p);
+  };
+  const steps = [];
+  for (const { text: t, line } of contentLines(text)) {
+    let m;
+    if (m = t.match(RE.participants)) {
+      m[1].split(/[,，]/).map((s) => s.trim()).filter(Boolean).forEach(add);
+    } else if (m = t.match(RE.note)) {
+      const over = m[1].split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+      over.forEach(add);
+      steps.push({ kind: "note", over, text: m[2].trim(), line });
+    } else if (m = t.match(RE.divider)) {
+      steps.push({ kind: "divider", text: m[1], line });
+    } else if (m = t.match(RE.msg)) {
+      add(m[1]);
+      add(m[3]);
+      steps.push({ kind: "msg", from: m[1], to: m[3], dashed: m[2] === "-->", label: (m[4] ?? "").trim(), line });
+    } else {
+      throw new ComponentError(`sequence \u65E0\u6CD5\u89E3\u6790\uFF1A"${t}"\u3002\u6D88\u606F\u5199\u4F5C A -> B: \u6807\u7B7E\uFF08--> \u4E3A\u865A\u7EBF\u8FD4\u56DE\uFF09\uFF0C\u6CE8\u91CA\u5199\u4F5C note A: \u6587\u672C`, line);
+    }
+  }
+  if (!participants.length) throw new ComponentError("sequence \u81F3\u5C11\u9700\u8981\u4E00\u6761\u6D88\u606F", 1);
+  return { participants, steps };
+}
+var sequence_default = {
+  name: "sequence",
+  summary: "\u65F6\u5E8F\u56FE\uFF08\u53C2\u4E0E\u8005\u4E4B\u95F4\u7684\u6D88\u606F\u5F80\u6765\uFF09",
+  syntax: `\`\`\`sequence [num]
+participants: A, B, C        \u2190 \u53EF\u9009\uFF0C\u56FA\u5B9A\u53C2\u4E0E\u8005\u987A\u5E8F
+A -> B: \u8BF7\u6C42                  \u2190 \u5B9E\u7EBF
+B --> A: \u54CD\u5E94                 \u2190 \u865A\u7EBF\uFF08\u8FD4\u56DE\uFF09
+B -> B: \u81EA\u8C03\u7528
+note A: \u5355\u4E2A\u53C2\u4E0E\u8005\u4E0A\u7684\u6CE8\u91CA
+note A, C: \u6A2A\u8DE8\u591A\u4E2A\u53C2\u4E0E\u8005\u7684\u6CE8\u91CA
+== \u9636\u6BB5\u5206\u9694 ==
+\`\`\`
+- \u53C2\u6570 num\uFF1A\u7ED9\u6D88\u606F\u52A0\u5E8F\u53F7\u3002`,
+  example: "```sequence\nClient -> Server: SYN\nServer --> Client: SYN-ACK\nClient -> Server: ACK\nnote Client, Server: ESTABLISHED\n```",
+  render(text, { args, uid }) {
+    const model = parseSequence(text);
+    return `<figure class="am-diagram am-seq">${layout(model, { num: /\bnum\b/.test(args), id: uid() })}</figure>`;
+  }
+};
+function layout({ participants: ps, steps }, { num, id }) {
+  const idx = new Map(ps.map((p, i) => [p, i]));
+  const actorW = ps.map((p) => Math.max(measure(p, FS) + 28, 84));
+  const gaps = ps.slice(1).map((_2, i) => (actorW[i] + actorW[i + 1]) / 2 + 28);
+  let extraRight = 0;
+  let extraLeft = 0;
+  const prepared = steps.map((s) => {
+    if (s.kind === "msg") {
+      const lines2 = s.label ? wrap(s.label, LABEL_MAX, FS) : [];
+      const width2 = Math.max(0, ...lines2.map((l3) => measure(l3, FS))) + (num ? 34 : 22);
+      const a = idx.get(s.from);
+      const b = idx.get(s.to);
+      if (a === b) {
+        if (a < gaps.length) gaps[a] = Math.max(gaps[a], width2 + 48);
+        else extraRight = Math.max(extraRight, width2 + 40);
+      } else {
+        const [lo, hi] = [Math.min(a, b), Math.max(a, b)];
+        const span = gaps.slice(lo, hi).reduce((x2, y3) => x2 + y3, 0);
+        if (span < width2) gaps[hi - 1] += width2 - span;
+      }
+      return { ...s, lines: lines2, a, b };
+    }
+    const lines = wrap(s.text, 220, 12);
+    const w = Math.max(...lines.map((l3) => measure(l3, 12))) + 20;
+    if (s.kind === "note" && s.over.length === 1) {
+      const i = idx.get(s.over[0]);
+      if (i === 0) extraLeft = Math.max(extraLeft, w / 2 - actorW[0] / 2);
+      if (i === ps.length - 1) extraRight = Math.max(extraRight, w / 2 - actorW[i] / 2);
+    }
+    return { ...s, lines, w };
+  });
+  const xs = [MARGIN + extraLeft + actorW[0] / 2];
+  gaps.forEach((g) => xs.push(xs.at(-1) + g));
+  const width = xs.at(-1) + actorW.at(-1) / 2 + MARGIN + extraRight;
+  const body = [];
+  let y2 = TOP + ACTOR_H + 22;
+  let n = 0;
+  for (const [k2, s] of prepared.entries()) {
+    const start = body.length;
+    if (s.kind === "msg") {
+      n++;
+      const cls = `am-edge${s.dashed ? " am-edge--dashed" : ""}`;
+      const marker = ` marker-end="url(#${id}-arrow)"`;
+      const step = num ? `<text class="am-step" x="${f(xs[s.a] + (s.b >= s.a ? 6 : -6))}" y="${f(y2 + s.lines.length * LH - 6)}" text-anchor="${s.b >= s.a ? "start" : "end"}">${n}</text>` : "";
+      if (s.a === s.b) {
+        const x2 = xs[s.a];
+        const labelX = x2 + 40;
+        body.push(s.lines.map((l3, k3) => `<text x="${f(labelX)}" y="${f(y2 + k3 * LH + 4)}" dominant-baseline="central">${esc(l3)}</text>`).join(""));
+        body.push(`<path class="${cls}" d="M${f(x2)},${f(y2)} H${f(x2 + 30)} V${f(y2 + 20)} H${f(x2 + 2)}"${marker}/>`, step);
+        y2 += Math.max(s.lines.length * LH, 20) + 28;
+      } else {
+        y2 += s.lines.length * LH;
+        const [x1, x2] = [xs[s.a], xs[s.b]];
+        const mx = (x1 + x2) / 2;
+        body.push(s.lines.map((l3, k3) => `<text x="${f(mx)}" y="${f(y2 - 10 - (s.lines.length - 1 - k3) * LH)}" text-anchor="middle">${esc(l3)}</text>`).join(""));
+        body.push(`<path class="${cls}" d="M${f(x1)},${f(y2)} L${f(x2 + (x2 > x1 ? -2 : 2))},${f(y2)}"${marker}/>`, step);
+        y2 += 24;
+      }
+    } else if (s.kind === "note") {
+      const xsOver = s.over.map((p) => xs[idx.get(p)]);
+      const lo = Math.min(...xsOver);
+      const hi = Math.max(...xsOver);
+      const w = Math.max(s.w, hi - lo + 40);
+      const h2 = s.lines.length * LH + 12;
+      const cx = (lo + hi) / 2;
+      body.push(`<rect class="am-note" x="${f(cx - w / 2)}" y="${f(y2)}" width="${f(w)}" height="${f(h2)}" rx="2"/>`);
+      body.push(textLines(s.lines, cx, y2 + h2 / 2, LH, ' font-size="12"'));
+      y2 += h2 + 16;
+    } else {
+      const w = Math.max(...s.lines.map((l3) => measure(l3, 12))) + 20;
+      body.push(`<line class="am-lifeline" x1="${MARGIN}" y1="${f(y2 + 10)}" x2="${f(width - MARGIN)}" y2="${f(y2 + 10)}"/>`);
+      body.push(`<rect class="am-actor" x="${f(width / 2 - w / 2)}" y="${f(y2)}" width="${f(w)}" height="20" rx="2"/>`);
+      body.push(textLines(s.lines.slice(0, 1), width / 2, y2 + 10, LH, ' font-size="12"'));
+      y2 += 34;
+    }
+    body.splice(start, body.length - start, `<g data-step="${k2}">${body.slice(start).join("")}</g>`);
+  }
+  const height = y2 + 6;
+  const actors = ps.map((p, i) => {
+    const x2 = xs[i];
+    return `<line class="am-lifeline" x1="${f(x2)}" y1="${TOP + ACTOR_H}" x2="${f(x2)}" y2="${f(height - 4)}"/><g data-key="${esc(p)}"><rect class="am-actor" x="${f(x2 - actorW[i] / 2)}" y="${TOP}" width="${f(actorW[i])}" height="${ACTOR_H}" rx="2"/>${textLines([p], x2, TOP + ACTOR_H / 2, LH, ' font-weight="600"')}</g>`;
+  });
+  return `${svgOpen(width, height, `\u65F6\u5E8F\u56FE\uFF1A${ps.join("\u3001")}`)}${arrowDefs(id)}${actors.join("")}${body.join("")}</svg>`;
+}
+
+// node_modules/@dagrejs/dagre/dist/dagre.esm.js
+var Te2 = Object.defineProperty;
+var In = (e, n, t) => n in e ? Te2(e, n, { enumerable: true, configurable: true, writable: true, value: t }) : e[n] = t;
+var Sn = (e, n) => {
+  for (var t in n) Te2(e, t, { get: n[t], enumerable: true });
+};
+var je2 = (e, n, t) => In(e, typeof n != "symbol" ? n + "" : n, t);
+var ie2 = {};
+Sn(ie2, { Graph: () => T2, alg: () => H });
+var Mn = Object.defineProperty;
+var Se = (e, n) => {
+  for (var t in n) Mn(e, t, { get: n[t], enumerable: true });
+};
+var Q2 = class {
+  constructor(e) {
+    this._isDirected = true, this._isMultigraph = false, this._isCompound = false, this._nodes = {}, this._in = {}, this._preds = {}, this._out = {}, this._sucs = {}, this._edgeObjs = {}, this._edgeLabels = {}, this._nodeCount = 0, this._edgeCount = 0, this._defaultNodeLabelFn = () => {
+    }, this._defaultEdgeLabelFn = () => {
+    }, e && (this._isDirected = "directed" in e ? e.directed : true, this._isMultigraph = "multigraph" in e ? e.multigraph : false, this._isCompound = "compound" in e ? e.compound : false), this._isCompound && (this._parent = {}, this._children = {}, this._children["\0"] = {});
+  }
+  isDirected() {
+    return this._isDirected;
+  }
+  isMultigraph() {
+    return this._isMultigraph;
+  }
+  isCompound() {
+    return this._isCompound;
+  }
+  setGraph(e) {
+    return this._label = e, this;
+  }
+  graph() {
+    return this._label;
+  }
+  setDefaultNodeLabel(e) {
+    return typeof e != "function" ? this._defaultNodeLabelFn = () => e : this._defaultNodeLabelFn = e, this;
+  }
+  nodeCount() {
+    return this._nodeCount;
+  }
+  nodes() {
+    return Object.keys(this._nodes);
+  }
+  sources() {
+    return this.nodes().filter((e) => Object.keys(this._in[e]).length === 0);
+  }
+  sinks() {
+    return this.nodes().filter((e) => Object.keys(this._out[e]).length === 0);
+  }
+  setNodes(e, n) {
+    return e.forEach((t) => {
+      n !== void 0 ? this.setNode(t, n) : this.setNode(t);
+    }), this;
+  }
+  setNode(e, n) {
+    return e in this._nodes ? (arguments.length > 1 && (this._nodes[e] = n), this) : (this._nodes[e] = arguments.length > 1 ? n : this._defaultNodeLabelFn(e), this._isCompound && (this._parent[e] = "\0", this._children[e] = {}, this._children["\0"][e] = true), this._in[e] = {}, this._preds[e] = {}, this._out[e] = {}, this._sucs[e] = {}, ++this._nodeCount, this);
+  }
+  node(e) {
+    return this._nodes[e];
+  }
+  hasNode(e) {
+    return e in this._nodes;
+  }
+  removeNode(e) {
+    if (e in this._nodes) {
+      let n = (t) => this.removeEdge(this._edgeObjs[t]);
+      delete this._nodes[e], this._isCompound && (this._removeFromParentsChildList(e), delete this._parent[e], this.children(e).forEach((t) => {
+        this.setParent(t);
+      }), delete this._children[e]), Object.keys(this._in[e]).forEach(n), delete this._in[e], delete this._preds[e], Object.keys(this._out[e]).forEach(n), delete this._out[e], delete this._sucs[e], --this._nodeCount;
+    }
+    return this;
+  }
+  setParent(e, n) {
+    if (!this._isCompound) throw new Error("Cannot set parent in a non-compound graph");
+    if (n === void 0) n = "\0";
+    else {
+      n += "";
+      for (let t = n; t !== void 0; t = this.parent(t)) if (t === e) throw new Error("Setting " + n + " as parent of " + e + " would create a cycle");
+      this.setNode(n);
+    }
+    return this.setNode(e), this._removeFromParentsChildList(e), this._parent[e] = n, this._children[n][e] = true, this;
+  }
+  parent(e) {
+    if (this._isCompound) {
+      let n = this._parent[e];
+      if (n !== "\0") return n;
+    }
+  }
+  children(e = "\0") {
+    if (this._isCompound) {
+      let n = this._children[e];
+      if (n) return Object.keys(n);
+    } else {
+      if (e === "\0") return this.nodes();
+      if (this.hasNode(e)) return [];
+    }
+    return [];
+  }
+  predecessors(e) {
+    let n = this._preds[e];
+    if (n) return Object.keys(n);
+  }
+  successors(e) {
+    let n = this._sucs[e];
+    if (n) return Object.keys(n);
+  }
+  neighbors(e) {
+    let n = this.predecessors(e);
+    if (n) {
+      let t = new Set(n), r = this.successors(e);
+      if (r) for (let o of r) t.add(o);
+      return Array.from(t.values());
+    }
+  }
+  isLeaf(e) {
+    var n;
+    let t;
+    return this.isDirected() ? t = this.successors(e) : t = this.neighbors(e), ((n = t == null ? void 0 : t.length) != null ? n : 0) === 0;
+  }
+  filterNodes(e) {
+    let n = new this.constructor({ directed: this._isDirected, multigraph: this._isMultigraph, compound: this._isCompound });
+    n.setGraph(this.graph()), Object.entries(this._nodes).forEach(([o, i]) => {
+      e(o) && n.setNode(o, i);
+    }), Object.values(this._edgeObjs).forEach((o) => {
+      n.hasNode(o.v) && n.hasNode(o.w) && n.setEdge(o, this.edge(o));
+    });
+    let t = {}, r = (o) => {
+      let i = this.parent(o);
+      return !i || n.hasNode(i) ? (t[o] = i, i) : i in t ? t[i] : r(i);
+    };
+    return this._isCompound && n.nodes().forEach((o) => n.setParent(o, r(o))), n;
+  }
+  setDefaultEdgeLabel(e) {
+    return typeof e != "function" ? this._defaultEdgeLabelFn = () => e : this._defaultEdgeLabelFn = e, this;
+  }
+  edgeCount() {
+    return this._edgeCount;
+  }
+  edges() {
+    return Object.values(this._edgeObjs);
+  }
+  setPath(e, n) {
+    return e.reduce((t, r) => (n !== void 0 ? this.setEdge(t, r, n) : this.setEdge(t, r), r)), this;
+  }
+  setEdge(e, n, t, r) {
+    let o, i, s, a, l3 = false;
+    typeof e == "object" && e !== null && "v" in e ? (o = e.v, i = e.w, s = e.name, arguments.length === 2 && (a = n, l3 = true)) : (o = e, i = n, s = r, arguments.length > 2 && (a = t, l3 = true)), o = "" + o, i = "" + i, s !== void 0 && (s = "" + s);
+    let u = z2(this._isDirected, o, i, s);
+    if (u in this._edgeLabels) return l3 && (this._edgeLabels[u] = a), this;
+    if (s !== void 0 && !this._isMultigraph) throw new Error("Cannot set a named edge when isMultigraph = false");
+    this.setNode(o), this.setNode(i), this._edgeLabels[u] = l3 ? a : this._defaultEdgeLabelFn(o, i, s);
+    let d = Pn(this._isDirected, o, i, s);
+    return o = d.v, i = d.w, Object.freeze(d), this._edgeObjs[u] = d, Re2(this._preds[i], o), Re2(this._sucs[o], i), this._in[i][u] = d, this._out[o][u] = d, this._edgeCount++, this;
+  }
+  edge(e, n, t) {
+    let r = arguments.length === 1 ? oe2(this._isDirected, e) : z2(this._isDirected, e, n, t);
+    return this._edgeLabels[r];
+  }
+  edgeAsObj(e, n, t) {
+    let r = arguments.length === 1 ? this.edge(e) : this.edge(e, n, t);
+    return typeof r != "object" || r === null ? { label: r } : r;
+  }
+  hasEdge(e, n, t) {
+    return (arguments.length === 1 ? oe2(this._isDirected, e) : z2(this._isDirected, e, n, t)) in this._edgeLabels;
+  }
+  removeEdge(e, n, t) {
+    let r = arguments.length === 1 ? oe2(this._isDirected, e) : z2(this._isDirected, e, n, t), o = this._edgeObjs[r];
+    if (o) {
+      let i = o.v, s = o.w;
+      delete this._edgeLabels[r], delete this._edgeObjs[r], Ie2(this._preds[s], i), Ie2(this._sucs[i], s), delete this._in[s][r], delete this._out[i][r], this._edgeCount--;
+    }
+    return this;
+  }
+  inEdges(e, n) {
+    return this.isDirected() ? this.filterEdges(this._in[e], e, n) : this.nodeEdges(e, n);
+  }
+  outEdges(e, n) {
+    return this.isDirected() ? this.filterEdges(this._out[e], e, n) : this.nodeEdges(e, n);
+  }
+  nodeEdges(e, n) {
+    if (e in this._nodes) return this.filterEdges({ ...this._in[e], ...this._out[e] }, e, n);
+  }
+  _removeFromParentsChildList(e) {
+    delete this._children[this._parent[e]][e];
+  }
+  filterEdges(e, n, t) {
+    if (!e) return;
+    let r = Object.values(e);
+    return t ? r.filter((o) => o.v === n && o.w === t || o.v === t && o.w === n) : r;
+  }
+};
+function Re2(e, n) {
+  e[n] ? e[n]++ : e[n] = 1;
+}
+function Ie2(e, n) {
+  e[n] !== void 0 && !--e[n] && delete e[n];
+}
+function z2(e, n, t, r) {
+  let o = "" + n, i = "" + t;
+  if (!e && o > i) {
+    let s = o;
+    o = i, i = s;
+  }
+  return o + "" + i + "" + (r === void 0 ? "\0" : r);
+}
+function Pn(e, n, t, r) {
+  let o = "" + n, i = "" + t;
+  if (!e && o > i) {
+    let a = o;
+    o = i, i = a;
+  }
+  let s = { v: o, w: i };
+  return r && (s.name = r), s;
+}
+function oe2(e, n) {
+  return z2(e, n.v, n.w, n.name);
+}
+var Fn = {};
+Se(Fn, { read: () => Yn, write: () => An });
+function An(e) {
+  let n = { options: { directed: e.isDirected(), multigraph: e.isMultigraph(), compound: e.isCompound() }, nodes: Vn(e), edges: Dn(e) }, t = e.graph();
+  return t !== void 0 && (n.value = structuredClone(t)), n;
+}
+function Vn(e) {
+  return e.nodes().map((n) => {
+    let t = e.node(n), r = e.parent(n), o = { v: n };
+    return t !== void 0 && (o.value = t), r !== void 0 && (o.parent = r), o;
+  });
+}
+function Dn(e) {
+  return e.edges().map((n) => {
+    let t = e.edge(n), r = { v: n.v, w: n.w };
+    return n.name !== void 0 && (r.name = n.name), t !== void 0 && (r.value = t), r;
+  });
+}
+function Yn(e) {
+  let n = new Q2(e.options);
+  return e.value !== void 0 && n.setGraph(e.value), e.nodes.forEach((t) => {
+    n.setNode(t.v, t.value), t.parent && n.setParent(t.v, t.parent);
+  }), e.edges.forEach((t) => {
+    n.setEdge({ v: t.v, w: t.w, name: t.name }, t.value);
+  }), n;
+}
+var H = {};
+Se(H, { CycleException: () => K, bellmanFord: () => Me2, components: () => Xn, dijkstra: () => J2, dijkstraAll: () => qn, findCycles: () => $n, floydWarshall: () => Jn, isAcyclic: () => Qn, postorder: () => et2, preorder: () => nt2, prim: () => tt2, shortestPaths: () => rt2, tarjan: () => Fe2, topsort: () => Ae2 });
+var Wn = () => 1;
+function Me2(e, n, t, r) {
+  return Bn(e, String(n), t || Wn, r || function(o) {
+    var i;
+    return (i = e.outEdges(o)) != null ? i : [];
+  });
+}
+function Bn(e, n, t, r) {
+  let o = {}, i, s = 0, a = e.nodes(), l3 = function(c) {
+    let f2 = o[c.v], h2 = o[c.w];
+    if (!f2 || !h2) return;
+    let p = t(c);
+    f2.distance + p < h2.distance && (o[c.w] = { distance: f2.distance + p, predecessor: c.v }, i = true);
+  }, u = function() {
+    a.forEach(function(c) {
+      r(c).forEach(function(f2) {
+        let h2 = f2.v === c ? f2.v : f2.w, p = h2 === f2.v ? f2.w : f2.v;
+        l3({ v: h2, w: p });
+      });
+    });
+  };
+  a.forEach(function(c) {
+    let f2 = c === n ? 0 : Number.POSITIVE_INFINITY;
+    o[c] = { distance: f2, predecessor: "" };
+  });
+  let d = a.length;
+  for (let c = 1; c < d && (i = false, s++, u(), !!i); c++) ;
+  if (s === d - 1 && (i = false, u(), i)) throw new Error("The graph contains a negative weight cycle");
+  return o;
+}
+function Xn(e) {
+  let n = {}, t = [], r;
+  function o(i) {
+    var s, a;
+    i in n || (n[i] = true, r.push(i), (s = e.successors(i)) == null || s.forEach(o), (a = e.predecessors(i)) == null || a.forEach(o));
+  }
+  return e.nodes().forEach(function(i) {
+    r = [], o(i), r.length && t.push(r);
+  }), t;
+}
+var Pe = class {
+  constructor() {
+    this._arr = [], this._keyIndices = {};
+  }
+  size() {
+    return this._arr.length;
+  }
+  keys() {
+    return this._arr.map((e) => e.key);
+  }
+  has(e) {
+    return e in this._keyIndices;
+  }
+  priority(e) {
+    let n = this._keyIndices[e];
+    if (n !== void 0) return this._arr[n].priority;
+  }
+  min() {
+    if (this.size() === 0) throw new Error("Queue underflow");
+    return this._arr[0].key;
+  }
+  add(e, n) {
+    let t = this._keyIndices, r = String(e);
+    if (!(r in t)) {
+      let o = this._arr, i = o.length;
+      return t[r] = i, o.push({ key: r, priority: n }), this._decrease(i), true;
+    }
+    return false;
+  }
+  removeMin() {
+    if (this.size() === 0) throw new Error("Queue underflow");
+    this._swap(0, this._arr.length - 1);
+    let e = this._arr.pop();
+    return delete this._keyIndices[e.key], this._heapify(0), e.key;
+  }
+  decrease(e, n) {
+    let t = this._keyIndices[e];
+    if (t === void 0) throw new Error(`Key not found: ${e}`);
+    let r = this._arr[t].priority;
+    if (n > r) throw new Error(`New priority is greater than current priority. Key: ${e} Old: ${r} New: ${n}`);
+    this._arr[t].priority = n, this._decrease(t);
+  }
+  _heapify(e) {
+    let n = this._arr, t = 2 * e, r = t + 1, o = e;
+    t < n.length && (o = n[t].priority < n[o].priority ? t : o, r < n.length && (o = n[r].priority < n[o].priority ? r : o), o !== e && (this._swap(e, o), this._heapify(o)));
+  }
+  _decrease(e) {
+    let n = this._arr, t = n[e].priority, r;
+    for (; e !== 0 && (r = e >> 1, !(n[r].priority < t)); ) this._swap(e, r), e = r;
+  }
+  _swap(e, n) {
+    let t = this._arr, r = this._keyIndices, o = t[e], i = t[n];
+    t[e] = i, t[n] = o, r[i.key] = e, r[o.key] = n;
+  }
+};
+var zn = () => 1;
+function J2(e, n, t, r) {
+  let o = function(i) {
+    var s;
+    return (s = e.outEdges(i)) != null ? s : [];
+  };
+  return Hn(e, String(n), t || zn, r || o);
+}
+function Hn(e, n, t, r) {
+  let o = {}, i = new Pe(), s, a, l3 = function(u) {
+    let d = u.v !== s ? u.v : u.w, c = o[d];
+    if (!c) return;
+    let f2 = t(u), h2 = a.distance + f2;
+    if (f2 < 0) throw new Error("dijkstra does not allow negative edge weights. Bad edge: " + u + " Weight: " + f2);
+    h2 < c.distance && (c.distance = h2, c.predecessor = s, i.decrease(d, h2));
+  };
+  for (e.nodes().forEach(function(u) {
+    let d = u === n ? 0 : Number.POSITIVE_INFINITY;
+    o[u] = { distance: d, predecessor: "" }, i.add(u, d);
+  }); i.size() > 0; ) {
+    s = i.removeMin();
+    let u = o[s];
+    if (!u || u.distance === Number.POSITIVE_INFINITY) break;
+    a = u, r(s).forEach(l3);
+  }
+  return o;
+}
+function qn(e, n, t) {
+  return e.nodes().reduce(function(r, o) {
+    return r[o] = J2(e, o, n, t), r;
+  }, {});
+}
+function Fe2(e) {
+  let n = 0, t = [], r = {}, o = [];
+  function i(s) {
+    var a;
+    let l3 = r[s] = { onStack: true, lowlink: n, index: n++ };
+    if (t.push(s), (a = e.successors(s)) == null || a.forEach(function(u) {
+      if (u in r) {
+        let d = r[u];
+        d != null && d.onStack && (l3.lowlink = Math.min(l3.lowlink, d.index));
+      } else {
+        i(u);
+        let d = r[u];
+        d && (l3.lowlink = Math.min(l3.lowlink, d.lowlink));
+      }
+    }), l3.lowlink === l3.index) {
+      let u = [], d;
+      do {
+        d = t.pop();
+        let c = r[d];
+        c && (c.onStack = false), u.push(d);
+      } while (s !== d);
+      o.push(u);
+    }
+  }
+  return e.nodes().forEach(function(s) {
+    s in r || i(s);
+  }), o;
+}
+function $n(e) {
+  return Fe2(e).filter(function(n) {
+    var t;
+    let r = n[0];
+    return r ? n.length > 1 || n.length === 1 && ((t = e.outEdges(r, r)) != null ? t : []).length > 0 : false;
+  });
+}
+var Un = () => 1;
+function Jn(e, n, t) {
+  return Kn(e, n || Un, t || function(r) {
+    var o;
+    return (o = e.outEdges(r)) != null ? o : [];
+  });
+}
+function Kn(e, n, t) {
+  let r = {}, o = e.nodes();
+  return o.forEach(function(i) {
+    let s = {};
+    r[i] = s, s[i] = { distance: 0, predecessor: "" }, o.forEach(function(a) {
+      i !== a && (s[a] = { distance: Number.POSITIVE_INFINITY, predecessor: "" });
+    }), t(i).forEach(function(a) {
+      let l3 = a.v === i ? a.w : a.v, u = n(a);
+      s[l3] = { distance: u, predecessor: i };
+    });
+  }), o.forEach(function(i) {
+    let s = r[i];
+    s && o.forEach(function(a) {
+      let l3 = r[a];
+      l3 && o.forEach(function(u) {
+        let d = l3[i], c = s[u], f2 = l3[u];
+        if (d && c && f2) {
+          let h2 = d.distance + c.distance;
+          h2 < f2.distance && (f2.distance = h2, f2.predecessor = c.predecessor);
+        }
+      });
+    });
+  }), r;
+}
+var K = class extends Error {
+  constructor(e) {
+    super(e), this.name = "CycleException";
+  }
+};
+function Ae2(e) {
+  let n = {}, t = {}, r = [];
+  function o(i) {
+    var s;
+    if (i in t) throw new K();
+    i in n || (t[i] = true, n[i] = true, (s = e.predecessors(i)) == null || s.forEach(o), delete t[i], r.push(i));
+  }
+  if (e.sinks().forEach(o), Object.keys(n).length !== e.nodeCount()) throw new K();
+  return r;
+}
+function Qn(e) {
+  try {
+    Ae2(e);
+  } catch (n) {
+    if (n instanceof K) return false;
+    throw n;
+  }
+  return true;
+}
+function Zn(e, n, t, r, o) {
+  Array.isArray(n) || (n = [n]);
+  let i = ((a) => {
+    var l3;
+    return (l3 = e.isDirected() ? e.successors(a) : e.neighbors(a)) != null ? l3 : [];
+  }), s = {};
+  return n.forEach(function(a) {
+    if (!e.hasNode(a)) throw new Error("Graph does not have node: " + a);
+    o = Ve2(e, a, t === "post", s, i, r, o);
+  }), o;
+}
+function Ve2(e, n, t, r, o, i, s) {
+  return n in r || (r[n] = true, t || (s = i(s, n)), o(n).forEach(function(a) {
+    s = Ve2(e, a, t, r, o, i, s);
+  }), t && (s = i(s, n))), s;
+}
+function De2(e, n, t) {
+  return Zn(e, n, t, function(r, o) {
+    return r.push(o), r;
+  }, []);
+}
+function et2(e, n) {
+  return De2(e, n, "post");
+}
+function nt2(e, n) {
+  return De2(e, n, "pre");
+}
+function tt2(e, n) {
+  var t;
+  let r = new Q2(), o = {}, i = new Pe(), s;
+  function a(d) {
+    let c = d.v === s ? d.w : d.v, f2 = i.priority(c);
+    if (f2 !== void 0) {
+      let h2 = n(d);
+      h2 < f2 && (o[c] = s, i.decrease(c, h2));
+    }
+  }
+  if (e.nodeCount() === 0) return r;
+  e.nodes().forEach(function(d) {
+    i.add(d, Number.POSITIVE_INFINITY), r.setNode(d);
+  });
+  let l3 = e.nodes()[0];
+  l3 !== void 0 && i.decrease(l3, 0);
+  let u = false;
+  for (; i.size() > 0; ) {
+    if (s = i.removeMin(), s in o) r.setEdge(s, o[s]);
+    else {
+      if (u) throw new Error("Input graph is not connected: " + e);
+      u = true;
+    }
+    (t = e.nodeEdges(s)) == null || t.forEach(a);
+  }
+  return r;
+}
+function rt2(e, n, t, r) {
+  return ot2(e, n, t, r != null ? r : ((o) => {
+    var i;
+    return (i = e.outEdges(o)) != null ? i : [];
+  }));
+}
+function ot2(e, n, t, r) {
+  if (t === void 0) return J2(e, n, t, r);
+  let o = false, i = e.nodes();
+  for (let s = 0; s < i.length; s++) {
+    let a = i[s];
+    if (a === void 0) continue;
+    let l3 = r(a);
+    for (let u = 0; u < l3.length; u++) {
+      let d = l3[u];
+      if (!d) continue;
+      let c = d.v === a ? d.v : d.w, f2 = c === d.v ? d.w : d.v;
+      t({ v: c, w: f2 }) < 0 && (o = true);
+    }
+    if (o) return Me2(e, n, t, r);
+  }
+  return J2(e, n, t, r);
+}
+var T2 = Q2;
+function M(e, n, t, r) {
+  let o = r;
+  for (; e.hasNode(o); ) o = $2(r);
+  return t.dummy = n, e.setNode(o, t), o;
+}
+function Ye2(e) {
+  let n = new T2().setGraph(e.graph());
+  return e.nodes().forEach((t) => n.setNode(t, e.node(t))), e.edges().forEach((t) => {
+    let r = n.edge(t.v, t.w) || { weight: 0, minlen: 1 }, o = e.edge(t);
+    n.setEdge(t.v, t.w, { weight: r.weight + o.weight, minlen: Math.max(r.minlen, o.minlen) });
+  }), n;
+}
+function Z(e) {
+  let n = new T2({ multigraph: e.isMultigraph() }).setGraph(e.graph());
+  return e.nodes().forEach((t) => {
+    e.children(t).length || n.setNode(t, e.node(t));
+  }), e.edges().forEach((t) => {
+    n.setEdge(t, e.edge(t));
+  }), n;
+}
+function se2(e, n) {
+  let t = e.x, r = e.y, o = n.x - t, i = n.y - r, s = e.width / 2, a = e.height / 2;
+  if (!o && !i) throw new Error("Not possible to find intersection inside of the rectangle");
+  let l3, u;
+  return Math.abs(i) * s > Math.abs(o) * a ? (i < 0 && (a = -a), l3 = a * o / i, u = a) : (o < 0 && (s = -s), l3 = s, u = s * i / o), { x: t + l3, y: r + u };
+}
+function P2(e) {
+  let n = A2(de2(e) + 1).map(() => []);
+  return e.nodes().forEach((t) => {
+    let r = e.node(t), o = r.rank;
+    o !== void 0 && (n[o] || (n[o] = []), n[o][r.order] = t);
+  }), n;
+}
+function We2(e) {
+  let n = e.nodes().map((r) => {
+    let o = e.node(r).rank;
+    return o === void 0 ? Number.MAX_VALUE : o;
+  }), t = R2(Math.min, n);
+  e.nodes().forEach((r) => {
+    let o = e.node(r);
+    Object.hasOwn(o, "rank") && (o.rank -= t);
+  });
+}
+function Be2(e) {
+  let n = e.nodes().map((s) => e.node(s).rank).filter((s) => s !== void 0), t = R2(Math.min, n), r = [];
+  e.nodes().forEach((s) => {
+    let a = e.node(s).rank - t;
+    r[a] || (r[a] = []), r[a].push(s);
+  });
+  let o = 0, i = e.graph().nodeRankFactor;
+  Array.from(r).forEach((s, a) => {
+    s === void 0 && a % i !== 0 ? --o : s !== void 0 && o && s.forEach((l3) => e.node(l3).rank += o);
+  });
+}
+function ae(e, n, t, r) {
+  let o = { width: 0, height: 0 };
+  return arguments.length >= 4 && (o.rank = t, o.order = r), M(e, "border", o, n);
+}
+function it2(e, n = Xe2) {
+  let t = [];
+  for (let r = 0; r < e.length; r += n) {
+    let o = e.slice(r, r + n);
+    t.push(o);
+  }
+  return t;
+}
+var Xe2 = 65535;
+function R2(e, n) {
+  if (n.length > Xe2) {
+    let t = it2(n);
+    return e(...t.map((r) => e(...r)));
+  } else return e(...n);
+}
+function de2(e) {
+  let t = e.nodes().map((r) => {
+    let o = e.node(r).rank;
+    return o === void 0 ? Number.MIN_VALUE : o;
+  });
+  return R2(Math.max, t);
+}
+function ze2(e, n) {
+  let t = { lhs: [], rhs: [] };
+  return e.forEach((r) => {
+    n(r) ? t.lhs.push(r) : t.rhs.push(r);
+  }), t;
+}
+function le2(e, n) {
+  let t = Date.now();
+  try {
+    return n();
+  } finally {
+    console.log(e + " time: " + (Date.now() - t) + "ms");
+  }
+}
+function q2(e, n) {
+  return n();
+}
+var st2 = 0;
+function $2(e) {
+  let n = ++st2;
+  return e + ("" + n);
+}
+function A2(e, n, t = 1) {
+  n == null && (n = e, e = 0);
+  let r = (i) => i < n;
+  t < 0 && (r = (i) => n < i);
+  let o = [];
+  for (let i = e; r(i); i += t) o.push(i);
+  return o;
+}
+function B2(e, n) {
+  let t = {};
+  for (let r of n) e[r] !== void 0 && (t[r] = e[r]);
+  return t;
+}
+function X2(e, n) {
+  let t;
+  return typeof n == "string" ? t = (r) => r[n] : t = n, Object.entries(e).reduce((r, [o, i]) => (r[o] = t(i, o), r), {});
+}
+function He2(e, n) {
+  return e.reduce((t, r, o) => (t[r] = n[o], t), {});
+}
+var D2 = "\0";
+function ee2(e, n, t) {
+  var u, d, c, f2, h2, p;
+  if (!(e && n && t && n.dummy === "edge" && t.dummy === "edge" && n.edgeObj && t.edgeObj && e[n.edgeObj.v] && e[t.edgeObj.v] && e[n.edgeObj.w] && e[t.edgeObj.w])) return 0;
+  let r = true;
+  n.edgeObj.w === t.edgeObj.w && (r = false);
+  let o = r ? (d = (u = e[n.edgeObj.v]) == null ? void 0 : u.rank) != null ? d : NaN + 1 : (f2 = (c = e[n.edgeObj.w]) == null ? void 0 : c.rank) != null ? f2 : NaN - 1, i = Object.entries(e).find((E2) => {
+    var y2, L2;
+    return ((y2 = E2[1].edgeObj) == null ? void 0 : y2.v) === n.edgeObj.v && ((L2 = E2[1].edgeObj) == null ? void 0 : L2.w) === n.edgeObj.w && E2[1].rank === o;
+  }), s = Object.entries(e).find((E2) => {
+    var y2, L2;
+    return ((y2 = E2[1].edgeObj) == null ? void 0 : y2.v) === t.edgeObj.v && ((L2 = E2[1].edgeObj) == null ? void 0 : L2.w) === t.edgeObj.w && E2[1].rank === o;
+  });
+  if (!i || !s) return 0;
+  let a = (h2 = i[1].order) != null ? h2 : NaN, l3 = (p = s[1].order) != null ? p : NaN;
+  return isNaN(a - l3) ? 0 : a - l3;
+}
+var ue2 = "3.1.1";
+var ce2 = class {
+  constructor() {
+    je2(this, "_sentinel");
+    let n = {};
+    n._next = n._prev = n, this._sentinel = n;
+  }
+  dequeue() {
+    let n = this._sentinel, t = n._prev;
+    if (t !== n) return qe2(t), t;
+  }
+  enqueue(n) {
+    let t = this._sentinel;
+    n._prev && n._next && qe2(n), n._next = t._next, t._next._prev = n, t._next = n, n._prev = t;
+  }
+  toString() {
+    let n = [], t = this._sentinel, r = t._prev;
+    for (; r !== t; ) n.push(JSON.stringify(r, at2)), r = r._prev;
+    return "[" + n.join(", ") + "]";
+  }
+};
+function qe2(e) {
+  e._prev._next = e._next, e._next._prev = e._prev, delete e._next, delete e._prev;
+}
+function at2(e, n) {
+  if (e !== "_next" && e !== "_prev") return n;
+}
+var $e2 = ce2;
+var dt2 = () => 1;
+function be2(e, n) {
+  if (e.nodeCount() <= 1) return [];
+  let t = ut2(e, n || dt2);
+  return lt2(t.graph, t.buckets, t.zeroIdx).flatMap((o) => e.outEdges(o.v, o.w) || []);
+}
+function lt2(e, n, t) {
+  var a;
+  let r = [], o = n[n.length - 1], i = n[0], s;
+  for (; e.nodeCount(); ) {
+    for (; s = i.dequeue(); ) fe2(e, n, t, s);
+    for (; s = o.dequeue(); ) fe2(e, n, t, s);
+    if (e.nodeCount()) {
+      for (let l3 = n.length - 2; l3 > 0; --l3) if (s = (a = n[l3]) == null ? void 0 : a.dequeue(), s) {
+        r = r.concat(fe2(e, n, t, s, true) || []);
+        break;
+      }
+    }
+  }
+  return r;
+}
+function fe2(e, n, t, r, o) {
+  let i = [], s = o ? i : void 0;
+  return (e.inEdges(r.v) || []).forEach((a) => {
+    let l3 = e.edge(a), u = e.node(a.v);
+    o && i.push({ v: a.v, w: a.w }), u.out -= l3, he2(n, t, u);
+  }), (e.outEdges(r.v) || []).forEach((a) => {
+    let l3 = e.edge(a), u = a.w, d = e.node(u);
+    d.in -= l3, he2(n, t, d);
+  }), e.removeNode(r.v), s;
+}
+function ut2(e, n) {
+  let t = new T2(), r = 0, o = 0;
+  e.nodes().forEach((a) => {
+    t.setNode(a, { v: a, in: 0, out: 0 });
+  }), e.edges().forEach((a) => {
+    let l3 = t.edge(a.v, a.w) || 0, u = n(a), d = l3 + u;
+    t.setEdge(a.v, a.w, d);
+    let c = t.node(a.v), f2 = t.node(a.w);
+    o = Math.max(o, c.out += u), r = Math.max(r, f2.in += u);
+  });
+  let i = ct2(o + r + 3).map(() => new $e2()), s = r + 1;
+  return t.nodes().forEach((a) => {
+    he2(i, s, t.node(a));
+  }), { graph: t, buckets: i, zeroIdx: s };
+}
+function he2(e, n, t) {
+  var r, o, i;
+  t.out ? t.in ? (i = e[t.out - t.in + n]) == null || i.enqueue(t) : (o = e[e.length - 1]) == null || o.enqueue(t) : (r = e[0]) == null || r.enqueue(t);
+}
+function ct2(e) {
+  let n = [];
+  for (let t = 0; t < e; t++) n.push(t);
+  return n;
+}
+function Ue2(e, n) {
+  (e.graph().acyclicer === "greedy" ? be2(e, r(e)) : ft2(e, n != null ? n : null)).forEach((o) => {
+    let i = e.edge(o);
+    e.removeEdge(o), i.forwardName = o.name, i.reversed = true, e.setEdge(o.w, o.v, i, $2("rev"));
+  });
+  function r(o) {
+    return (i) => o.edge(i).weight;
+  }
+}
+function ft2(e, n) {
+  let t = [], r = {}, o = {};
+  function i(l3) {
+    Object.hasOwn(o, l3) || (o[l3] = true, r[l3] = true, e.outEdges(l3).forEach((u) => {
+      Object.hasOwn(r, u.w) ? t.push(u) : i(u.w);
+    }), delete r[l3]);
+  }
+  function s(l3) {
+    var u;
+    Object.hasOwn(o, l3) || (o[l3] = true, r[l3] = true, (u = e.outEdges(l3)) == null || u.forEach((d) => {
+      var c, f2;
+      Object.hasOwn(r, d.w) || ((c = n.node(l3)) == null ? void 0 : c.rank) > ((f2 = n.node(d.w)) == null ? void 0 : f2.rank) && ht2(e, d.w, d) ? t.push(d) : s(d.w);
+    }), delete r[l3]);
+  }
+  let a = i;
+  return n && typeof n.node == "function" && (a = s), e.sources().forEach(a), e.nodes().forEach(a), t;
+}
+function Je2(e) {
+  e.edges().forEach((n) => {
+    let t = e.edge(n);
+    if (t.reversed) {
+      e.removeEdge(n);
+      let r = t.forwardName;
+      delete t.reversed, delete t.forwardName, e.setEdge(n.w, n.v, t, r);
+    }
+  });
+}
+function ht2(e, n, t) {
+  let r = /* @__PURE__ */ new Set();
+  function o(i) {
+    var s;
+    if (e.sources().includes(i)) return true;
+    r.add(i);
+    for (let a of (s = e.inEdges(i)) != null ? s : []) if (!(a.v === t.v && a.w === t.w) && !r.has(a.v) && o(a.v)) return true;
+    return false;
+  }
+  return o(n);
+}
+function Ke2(e) {
+  e.graph().dummyChains = [], e.edges().forEach((n) => gt2(e, n));
+}
+function gt2(e, n) {
+  let t = n.v, r = e.node(t).rank, o = n.w, i = e.node(o).rank, s = n.name, a = e.edge(n), l3 = a.labelRank;
+  if (i === r + 1) return;
+  e.removeEdge(n);
+  let u, d, c;
+  for (c = 0, ++r; r < i; ++c, ++r) a.points = [], d = { width: 0, height: 0, edgeLabel: a, edgeObj: n, rank: r }, u = M(e, "edge", d, "_d"), r === l3 && (d.width = a.width, d.height = a.height, d.dummy = "edge-label", d.labelpos = a.labelpos), e.setEdge(t, u, { weight: a.weight }, s), c === 0 && e.graph().dummyChains.push(u), t = u;
+  e.setEdge(t, o, { weight: a.weight }, s);
+}
+function Qe2(e) {
+  e.graph().dummyChains.forEach((n) => {
+    let t = e.node(n), r = t.edgeLabel, o;
+    for (e.setEdge(t.edgeObj, r); t.dummy; ) o = e.successors(n)[0], e.removeNode(n), r.points.push({ x: t.x, y: t.y }), t.dummy === "edge-label" && (r.x = t.x, r.y = t.y, r.width = t.width, r.height = t.height), n = o, t = e.node(n);
+  });
+}
+function U2(e) {
+  let n = {};
+  function t(r) {
+    let o = e.node(r);
+    if (Object.hasOwn(n, r)) return o.rank;
+    n[r] = true;
+    let i = e.outEdges(r), s = i ? i.map((l3) => l3 == null ? Number.POSITIVE_INFINITY : t(l3.w) - e.edge(l3).minlen) : [], a = R2(Math.min, s);
+    return a === Number.POSITIVE_INFINITY && (a = 0), o.rank = a;
+  }
+  e.sources().forEach(t);
+}
+function V2(e, n) {
+  return e.node(n.w).rank - e.node(n.v).rank - e.edge(n).minlen;
+}
+var ne2 = mt2;
+function mt2(e) {
+  let n = new T2({ directed: false }), t = e.nodes();
+  if (t.length === 0) throw new Error("Graph must have at least one node");
+  let r = t[0], o = e.nodeCount();
+  n.setNode(r, {});
+  let i, s;
+  for (; Et(n, e) < o && (i = Lt(n, e), !!i); ) s = n.hasNode(i.v) ? V2(e, i) : -V2(e, i), yt2(n, e, s);
+  return n;
+}
+function Et(e, n) {
+  function t(r) {
+    let o = n.nodeEdges(r);
+    o && o.forEach((i) => {
+      let s = i.v, a = r === s ? i.w : s;
+      !e.hasNode(a) && !V2(n, i) && (e.setNode(a, {}), e.setEdge(r, a, {}), t(a));
+    });
+  }
+  return e.nodes().forEach(t), e.nodeCount();
+}
+function Lt(e, n) {
+  return n.edges().reduce((r, o) => {
+    let i = Number.POSITIVE_INFINITY;
+    return e.hasNode(o.v) !== e.hasNode(o.w) && (i = V2(n, o)), i < r[0] ? [i, o] : r;
+  }, [Number.POSITIVE_INFINITY, null])[1];
+}
+function yt2(e, n, t) {
+  e.nodes().forEach((r) => n.node(r).rank += t);
+}
+var { preorder: wt2, postorder: Nt } = H;
+var en = Y2;
+Y2.initLowLimValues = pe2;
+Y2.initCutValues = ge2;
+Y2.calcCutValue = nn;
+Y2.leaveEdge = rn;
+Y2.enterEdge = on;
+Y2.exchangeEdges = sn;
+function Y2(e) {
+  e = Ye2(e), U2(e);
+  let n = ne2(e);
+  pe2(n), ge2(n, e);
+  let t, r;
+  for (; t = rn(n); ) r = on(n, e, t), sn(n, e, t, r);
+}
+function ge2(e, n) {
+  let t = Nt(e, e.nodes());
+  t = t.slice(0, t.length - 1), t.forEach((r) => Gt(e, n, r));
+}
+function Gt(e, n, t) {
+  let o = e.node(t).parent, i = e.edge(t, o);
+  i.cutvalue = nn(e, n, t);
+}
+function nn(e, n, t) {
+  let o = e.node(t).parent, i = true, s = n.edge(t, o), a = 0;
+  s || (i = false, s = n.edge(o, t)), a = s.weight;
+  let l3 = n.nodeEdges(t);
+  return l3 && l3.forEach((u) => {
+    let d = u.v === t, c = d ? u.w : u.v;
+    if (c !== o) {
+      let f2 = d === i, h2 = n.edge(u).weight;
+      if (a += f2 ? h2 : -h2, kt2(e, t, c)) {
+        let E2 = e.edge(t, c).cutvalue;
+        a += f2 ? -E2 : E2;
+      }
+    }
+  }), a;
+}
+function pe2(e, n) {
+  arguments.length < 2 && (n = e.nodes()[0]), tn(e, {}, 1, n);
+}
+function tn(e, n, t, r, o) {
+  let i = t, s = e.node(r);
+  n[r] = true;
+  let a = e.neighbors(r);
+  return a && a.forEach((l3) => {
+    Object.hasOwn(n, l3) || (t = tn(e, n, t, l3, r));
+  }), s.low = i, s.lim = t++, o ? s.parent = o : delete s.parent, t;
+}
+function rn(e) {
+  return e.edges().find((n) => e.edge(n).cutvalue < 0);
+}
+function on(e, n, t) {
+  let r = t.v, o = t.w;
+  n.hasEdge(r, o) || (r = t.w, o = t.v);
+  let i = e.node(r), s = e.node(o), a = i, l3 = false;
+  return i.lim > s.lim && (a = s, l3 = true), n.edges().filter((d) => l3 === Ze2(e, e.node(d.v), a) && l3 !== Ze2(e, e.node(d.w), a)).reduce((d, c) => V2(n, c) < V2(n, d) ? c : d);
+}
+function sn(e, n, t, r) {
+  let o = t.v, i = t.w;
+  e.removeEdge(o, i), e.setEdge(r.v, r.w, {}), pe2(e), ge2(e, n), vt(e, n);
+}
+function vt(e, n) {
+  let t = e.nodes().find((o) => !e.node(o).parent);
+  if (!t) return;
+  let r = wt2(e, [t]);
+  r = r.slice(1), r.forEach((o) => {
+    let s = e.node(o).parent, a = n.edge(o, s), l3 = false;
+    a || (a = n.edge(s, o), l3 = true), n.node(o).rank = n.node(s).rank + (l3 ? a.minlen : -a.minlen);
+  });
+}
+function kt2(e, n, t) {
+  return e.hasEdge(n, t);
+}
+function Ze2(e, n, t) {
+  return t.low <= n.lim && n.lim <= t.lim;
+}
+var dn = xt2;
+function xt2(e) {
+  let n = e.graph().ranker;
+  if (typeof n == "function") return n(e);
+  switch (n) {
+    case "network-simplex":
+      an(e);
+      break;
+    case "tight-tree":
+      Ot2(e);
+      break;
+    case "longest-path":
+      _t(e);
+      break;
+    case "none":
+      break;
+    default:
+      an(e);
+  }
+}
+var _t = U2;
+function Ot2(e) {
+  U2(e), ne2(e);
+}
+function an(e) {
+  en(e);
+}
+var ln = Ct;
+function Ct(e) {
+  let n = jt(e), t = e.graph();
+  if (!Array.isArray(t.dummyChains)) return;
+  t.dummyChains.forEach((o) => {
+    let i = e.node(o), s = i.edgeObj, a = Tt2(e, n, s.v, s.w), l3 = a.path, u = a.lca, d = 0, c = l3[d], f2 = true;
+    for (; o !== s.w; ) {
+      if (i = e.node(o), f2) {
+        for (; (c = l3[d]) !== u && e.node(c).maxRank < i.rank; ) d++;
+        c === u && (f2 = false);
+      }
+      if (!f2) {
+        for (; d < l3.length - 1 && e.node(l3[d + 1]).minRank <= i.rank; ) d++;
+        c = l3[d];
+      }
+      c !== void 0 && e.setParent(o, c), o = e.successors(o)[0];
+    }
+  });
+}
+function Tt2(e, n, t, r) {
+  let o = [], i = [], s = Math.min(n[t].low, n[r].low), a = Math.max(n[t].lim, n[r].lim), l3;
+  l3 = t;
+  do
+    l3 = e.parent(l3), o.push(l3);
+  while (l3 && (n[l3].low > s || a > n[l3].lim));
+  let u = l3, d = r;
+  for (; (d = e.parent(d)) !== u; ) i.push(d);
+  return { path: o.concat(i.reverse()), lca: u };
+}
+function jt(e) {
+  let n = {}, t = 0;
+  function r(o) {
+    let i = t;
+    e.children(o).forEach(r), n[o] = { low: i, lim: t++ };
+  }
+  return e.children(D2).forEach(r), n;
+}
+function un(e) {
+  let n = M(e, "root", {}, "_root"), t = Rt2(e), r = Object.values(t), o = R2(Math.max, r) - 1, i = 2 * o + 1;
+  e.graph().nestingRoot = n, e.edges().forEach((a) => e.edge(a).minlen *= i);
+  let s = It(e) + 1;
+  e.children(D2).forEach((a) => {
+    cn(e, n, i, s, o, t, a);
+  }), e.graph().nodeRankFactor = i;
+}
+function cn(e, n, t, r, o, i, s) {
+  var c;
+  let a = e.children(s);
+  if (!a.length) {
+    s !== n && e.setEdge(n, s, { weight: 0, minlen: t });
+    return;
+  }
+  let l3 = ae(e, "_bt"), u = ae(e, "_bb"), d = e.node(s);
+  e.setParent(l3, s), d.borderTop = l3, e.setParent(u, s), d.borderBottom = u, a.forEach((f2) => {
+    var b;
+    cn(e, n, t, r, o, i, f2);
+    let h2 = e.node(f2), p = h2.borderTop ? h2.borderTop : f2, E2 = h2.borderBottom ? h2.borderBottom : f2, y2 = h2.borderTop ? r : 2 * r, L2 = p !== E2 ? 1 : o - ((b = i[s]) != null ? b : 0) + 1;
+    e.setEdge(l3, p, { weight: y2, minlen: L2, nestingEdge: true }), e.setEdge(E2, u, { weight: y2, minlen: L2, nestingEdge: true });
+  }), e.parent(s) || e.setEdge(n, l3, { weight: 0, minlen: o + ((c = i[s]) != null ? c : 0) });
+}
+function Rt2(e) {
+  let n = {};
+  function t(r, o) {
+    let i = e.children(r);
+    i && i.length && i.forEach((s) => t(s, o + 1)), n[r] = o;
+  }
+  return e.children(D2).forEach((r) => t(r, 1)), n;
+}
+function It(e) {
+  return e.edges().reduce((n, t) => n + e.edge(t).weight, 0);
+}
+function fn2(e) {
+  let n = e.graph();
+  e.removeNode(n.nestingRoot), delete n.nestingRoot, e.edges().forEach((t) => {
+    e.edge(t).nestingEdge && e.removeEdge(t);
+  });
+}
+var bn = Mt;
+function Mt(e) {
+  function n(t) {
+    let r = e.children(t), o = e.node(t);
+    if (r.length && r.forEach(n), o && Object.hasOwn(o, "minRank")) {
+      o.borderLeft = [], o.borderRight = [];
+      for (let i = o.minRank, s = o.maxRank + 1; i < s; ++i) hn(e, "borderLeft", "_bl", t, o, i), hn(e, "borderRight", "_br", t, o, i);
+    }
+  }
+  e.children(D2).forEach(n);
+}
+function hn(e, n, t, r, o, i) {
+  let s = { width: 0, height: 0, rank: i, borderType: n }, a = o[n][i - 1], l3 = M(e, "border", s, t);
+  o[n][i] = l3, e.setParent(l3, r), a && e.setEdge(a, l3, { weight: 1 });
+}
+function pn(e) {
+  var t;
+  let n = (t = e.graph().rankdir) == null ? void 0 : t.toLowerCase();
+  (n === "lr" || n === "rl") && En(e);
+}
+function mn2(e) {
+  var t;
+  let n = (t = e.graph().rankdir) == null ? void 0 : t.toLowerCase();
+  (n === "bt" || n === "rl") && Pt2(e), (n === "lr" || n === "rl") && (Ft(e), En(e));
+}
+function En(e) {
+  e.nodes().forEach((n) => gn2(e.node(n))), e.edges().forEach((n) => gn2(e.edge(n)));
+}
+function gn2(e) {
+  let n = e.width;
+  e.width = e.height, e.height = n;
+}
+function Pt2(e) {
+  e.nodes().forEach((n) => me2(e.node(n))), e.edges().forEach((n) => {
+    var r;
+    let t = e.edge(n);
+    (r = t.points) == null || r.forEach(me2), Object.hasOwn(t, "y") && me2(t);
+  });
+}
+function me2(e) {
+  e.y = -e.y;
+}
+function Ft(e) {
+  e.nodes().forEach((n) => Ee2(e.node(n))), e.edges().forEach((n) => {
+    var r;
+    let t = e.edge(n);
+    (r = t.points) == null || r.forEach(Ee2), Object.hasOwn(t, "x") && Ee2(t);
+  });
+}
+function Ee2(e) {
+  let n = e.x;
+  e.x = e.y, e.y = n;
+}
+function Le2(e, n = null) {
+  let t = {}, r = e.nodes().filter((d) => !e.children(d).length), o = r.map((d) => e.node(d).rank), i = R2(Math.max, o), s = A2(i + 1).map(() => []);
+  function a(d) {
+    if (t[d]) return;
+    t[d] = true;
+    let c = e.node(d);
+    s[c.rank].push(d);
+    let f2 = e.successors(d);
+    f2 && [...f2].sort((p, E2) => u(p, E2)).forEach(a);
+  }
+  r.sort((d, c) => e.node(d).rank - e.node(c).rank).forEach(a);
+  function u(d, c) {
+    let f2 = e.node(d), h2 = e.node(c);
+    return ee2(n, f2, h2);
+  }
+  return s;
+}
+function ye(e, n) {
+  let t = 0;
+  for (let r = 1; r < n.length; ++r) t += Vt(e, n[r - 1], n[r]);
+  return t;
+}
+function Vt(e, n, t) {
+  let r = He2(t, t.map((u, d) => d)), o = n.flatMap((u) => {
+    let d = e.outEdges(u);
+    return d ? d.map((c) => ({ pos: r[c.w], weight: e.edge(c).weight })).sort((c, f2) => c.pos - f2.pos) : [];
+  }), i = 1;
+  for (; i < t.length; ) i <<= 1;
+  let s = 2 * i - 1;
+  i -= 1;
+  let a = new Array(s).fill(0), l3 = 0;
+  return o.forEach((u) => {
+    let d = u.pos + i;
+    a[d] += u.weight;
+    let c = 0;
+    for (; d > 0; ) d % 2 && (c += a[d + 1]), d = d - 1 >> 1, a[d] += u.weight;
+    l3 += u.weight * c;
+  }), l3;
+}
+function we2(e, n = []) {
+  return n.map((t) => {
+    let r = e.inEdges(t);
+    if (!r || !r.length) return { v: t };
+    {
+      let o = r.reduce((i, s) => {
+        let a = e.edge(s), l3 = e.node(s.v);
+        return { sum: i.sum + a.weight * l3.order, weight: i.weight + a.weight };
+      }, { sum: 0, weight: 0 });
+      return { v: t, barycenter: o.sum / o.weight, weight: o.weight };
+    }
+  });
+}
+function Ne2(e, n) {
+  let t = {};
+  e.forEach((o, i) => {
+    let s = { indegree: 0, in: [], out: [], vs: [o.v], i };
+    o.barycenter !== void 0 && (s.barycenter = o.barycenter, s.weight = o.weight), t[o.v] = s;
+  }), n.edges().forEach((o) => {
+    let i = t[o.v], s = t[o.w];
+    i !== void 0 && s !== void 0 && (s.indegree++, i.out.push(s));
+  });
+  let r = Object.values(t).filter((o) => !o.indegree);
+  return Dt(r);
+}
+function Dt(e) {
+  let n = [];
+  function t(o) {
+    return (i) => {
+      i.merged || (i.barycenter === void 0 || o.barycenter === void 0 || i.barycenter >= o.barycenter) && Yt(o, i);
+    };
+  }
+  function r(o) {
+    return (i) => {
+      i.in.push(o), --i.indegree === 0 && e.push(i);
+    };
+  }
+  for (; e.length; ) {
+    let o = e.pop();
+    n.push(o), o.in.reverse().forEach(t(o)), o.out.forEach(r(o));
+  }
+  return n.filter((o) => !o.merged).map((o) => B2(o, ["vs", "i", "barycenter", "weight"]));
+}
+function Yt(e, n) {
+  let t = 0, r = 0;
+  e.weight && (t += e.barycenter * e.weight, r += e.weight), n.weight && (t += n.barycenter * n.weight, r += n.weight), e.vs = n.vs.concat(e.vs), e.barycenter = t / r, e.weight = r, e.i = Math.min(n.i, e.i), n.merged = true;
+}
+function Ge2(e, n, t, r, o) {
+  let i = {}, s = null, a = null, l3 = o;
+  typeof n == "boolean" ? (l3 = n, i = {}) : n && (i = n, s = t != null ? t : null, a = r != null ? r : null);
+  let u = ze2(e, (L2) => Object.hasOwn(L2, "barycenter")), d = u.lhs, c = u.rhs.sort((L2, b) => b.i - L2.i), f2 = [], h2 = 0, p = 0, E2 = 0;
+  d.sort(Wt(a, s, !!l3));
+  for (let [L2, b] of Object.entries(i)) {
+    let g = d.findIndex((m) => m.vs[0] === L2);
+    d.splice(g + 1, 0, b);
+  }
+  E2 = Ln(f2, c, E2), d.forEach((L2) => {
+    E2 += L2.vs.length, f2.push(L2.vs), h2 += L2.barycenter * L2.weight, p += L2.weight, E2 = Ln(f2, c, E2);
+  });
+  let y2 = { vs: f2.flat(1) };
+  return p && (y2.barycenter = h2 / p, y2.weight = p), y2;
+}
+function Ln(e, n, t) {
+  let r;
+  for (; n.length && (r = n[n.length - 1]).i <= t; ) n.pop(), e.push(r.vs), t++;
+  return t;
+}
+function Wt(e, n, t) {
+  return (r, o) => {
+    if (r.barycenter < o.barycenter) return -1;
+    if (r.barycenter > o.barycenter) return 1;
+    if (e && (typeof r.vs[0] == "string" || typeof o.vs[0] == "string")) {
+      let i = e.node(r.vs[0]), s = e.node(o.vs[0]), a = ee2(n, i, s);
+      if (a !== 0) return a;
+    }
+    return t ? o.i - r.i : r.i - o.i;
+  };
+}
+function te2(e, n, t, r, o) {
+  var L2, b, g, m, w, k2, _2, C2, j2, I2, S2;
+  let i = null, s = o;
+  typeof r == "boolean" ? (s = r, i = null) : r !== void 0 && (i = r);
+  let a = e.children(n), l3 = e.node(n), u = l3 ? l3.borderLeft : void 0, d = l3 ? l3.borderRight : void 0, c = {};
+  u && (a = a.filter((G2) => G2 !== u && G2 !== d));
+  let f2 = we2(e, a);
+  f2.forEach((G2) => {
+    if (e.children(G2.v).length) {
+      let { result: x2 } = te2(e, G2.v, t, i, s);
+      c[G2.v] = x2, Object.hasOwn(x2, "barycenter") && Xt(G2, x2);
+    }
+  });
+  let h2 = Ne2(f2, t);
+  Bt(h2, c);
+  let p = {}, E2 = false;
+  for (let G2 = 0; G2 < h2.length; G2++) for (let x2 = G2 + 1; x2 < h2.length; x2++) if (!(!h2[G2] || !h2[x2] || !((L2 = h2[G2]) != null && L2.barycenter) || !((b = h2[x2]) != null && b.barycenter)) && ((g = h2[G2]) == null ? void 0 : g.barycenter) === h2[x2].barycenter) {
+    let v = (w = (m = h2[G2]) == null ? void 0 : m.vs[0]) != null ? w : "", N2 = (_2 = (k2 = h2[x2]) == null ? void 0 : k2.vs[0]) != null ? _2 : "", O2 = e.node(v), W2 = e.node(N2);
+    if (O2.dummy === "edge" && W2.dummy === "edge" && ((C2 = O2.edgeObj) == null ? void 0 : C2.v) === ((j2 = W2.edgeObj) == null ? void 0 : j2.v) && ((I2 = O2.edgeObj) == null ? void 0 : I2.w) === ((S2 = W2.edgeObj) == null ? void 0 : S2.w)) if (O2.edgeLabel.reversed) {
+      p[N2] = h2[G2], h2.splice(G2, 1), G2--;
+      break;
+    } else p[v] = h2[x2], h2.splice(x2, 1), x2--;
+    else E2 = true;
+  }
+  let y2 = Ge2(h2, p, i, e, s);
+  if (u && d) {
+    y2.vs = [u, y2.vs, d].flat(1);
+    let G2 = e.predecessors(u);
+    if (G2 && G2.length) {
+      let x2 = e.node(G2[0]), v = e.predecessors(d), N2 = e.node(v[0]);
+      Object.hasOwn(y2, "barycenter") || (y2.barycenter = 0, y2.weight = 0), y2.barycenter = (y2.barycenter * y2.weight + x2.order + N2.order) / (y2.weight + 2), y2.weight += 2;
+    }
+  }
+  return Object.defineProperty(y2, "result", { value: y2, enumerable: false, configurable: true, writable: true }), Object.defineProperty(y2, "usedBias", { value: E2, enumerable: false, configurable: true, writable: true }), y2;
+}
+function Bt(e, n) {
+  e.forEach((t) => {
+    t.vs = t.vs.flatMap((r) => n[r] ? n[r].vs : r);
+  });
+}
+function Xt(e, n) {
+  e.barycenter !== void 0 ? (e.barycenter = (e.barycenter * e.weight + n.barycenter * n.weight) / (e.weight + n.weight), e.weight += n.weight) : (e.barycenter = n.barycenter, e.weight = n.weight);
+}
+function ve2(e, n, t, r) {
+  r || (r = e.nodes());
+  let o = zt(e), i = new T2({ compound: true }).setGraph({ root: o }).setDefaultNodeLabel((s) => e.node(s));
+  return r.forEach((s) => {
+    let a = e.node(s), l3 = e.parent(s);
+    if (a.rank === n || a.minRank <= n && n <= a.maxRank) {
+      i.setNode(s), i.setParent(s, l3 || o);
+      let u = e[t](s);
+      u && u.forEach((d) => {
+        let c = d.v === s ? d.w : d.v, f2 = i.edge(c, s), h2 = f2 !== void 0 ? f2.weight : 0;
+        i.setEdge(c, s, { weight: e.edge(d).weight + h2 });
+      }), Object.hasOwn(a, "minRank") && i.setNode(s, { borderLeft: a.borderLeft[n], borderRight: a.borderRight[n] });
+    }
+  }), i;
+}
+function zt(e) {
+  let n;
+  for (; e.hasNode(n = $2("_root")); ) ;
+  return n;
+}
+function ke2(e, n, t) {
+  let r = {}, o;
+  t.forEach((i) => {
+    let s = e.parent(i), a, l3;
+    for (; s; ) {
+      if (a = e.parent(s), a ? (l3 = r[a], r[a] = s) : (l3 = o, o = s), l3 && l3 !== s) {
+        n.setEdge(l3, s);
+        return;
+      }
+      s = a;
+    }
+  });
+}
+function re2(e, n = {}, t = null) {
+  if (typeof n.customOrder == "function") {
+    n.customOrder(e, re2);
+    return;
+  }
+  let r = de2(e), o = yn(e, A2(1, r + 1), "inEdges"), i = yn(e, A2(r - 1, -1, -1), "outEdges"), s = Le2(e, t);
+  if (wn(e, s), n.disableOptimalOrderHeuristic) return;
+  let a = Number.POSITIVE_INFINITY, l3, u = n.constraints || [];
+  for (let d = 0, c = 0; c < 4; ++d, ++c) {
+    Ht(d % 2 ? o : i, d % 4 >= 2, u, t), s = P2(e);
+    let f2 = ye(e, s);
+    f2 < a ? (c = 0, l3 = Object.assign({}, s), a = f2) : f2 === a && (l3 = structuredClone(s));
+  }
+  wn(e, l3);
+}
+function yn(e, n, t) {
+  let r = /* @__PURE__ */ new Map(), o = (i, s) => {
+    r.has(i) || r.set(i, []), r.get(i).push(s);
+  };
+  for (let i of e.nodes()) {
+    let s = e.node(i);
+    if (typeof s.rank == "number" && o(s.rank, i), typeof s.minRank == "number" && typeof s.maxRank == "number") for (let a = s.minRank; a <= s.maxRank; a++) a !== s.rank && o(a, i);
+  }
+  return n.map(function(i) {
+    return ve2(e, i, t, r.get(i) || []);
+  });
+}
+function Ht(e, n, t, r) {
+  let o = true, i = new T2();
+  e.forEach(function(s) {
+    t.forEach((d) => i.setEdge(d.left, d.right));
+    let a = s.graph().root, { result: l3, usedBias: u } = te2(s, a, i, r, o);
+    n && u && (o = !o), l3.vs.forEach((d, c) => s.node(d).order = c), ke2(s, i, l3.vs);
+  });
+}
+function wn(e, n) {
+  Object.values(n).forEach((t) => t.forEach((r, o) => e.node(r).order = o));
+}
+function qt(e, n) {
+  let t = {};
+  function r(o, i) {
+    let s = 0, a = 0, l3 = o.length, u = i[i.length - 1];
+    return i.forEach((d, c) => {
+      let f2 = Ut(e, d), h2 = f2 ? e.node(f2).order : l3;
+      (f2 || d === u) && (i.slice(a, c + 1).forEach((p) => {
+        let E2 = e.predecessors(p);
+        E2 && E2.forEach((y2) => {
+          let L2 = e.node(y2), b = L2.order;
+          (b < s || h2 < b) && !(L2.dummy && e.node(p).dummy) && Gn(t, y2, p);
+        });
+      }), a = c + 1, s = h2);
+    }), i;
+  }
+  return n.length && n.reduce(r), t;
+}
+function $t(e, n) {
+  let t = {};
+  function r(i, s, a, l3, u) {
+    A2(s, a).forEach((d) => {
+      let c = i[d];
+      if (c !== void 0 && e.node(c).dummy) {
+        let f2 = e.predecessors(c);
+        f2 && f2.forEach((h2) => {
+          if (h2 === void 0) return;
+          let p = e.node(h2);
+          p.dummy && (p.order < l3 || p.order > u) && Gn(t, h2, c);
+        });
+      }
+    });
+  }
+  function o(i, s) {
+    let a = -1, l3 = -1, u = 0;
+    return s.forEach((d, c) => {
+      if (e.node(d).dummy === "border") {
+        let f2 = e.predecessors(d);
+        if (f2 && f2.length) {
+          let h2 = f2[0];
+          if (h2 === void 0) return;
+          l3 = e.node(h2).order, r(s, u, c, a, l3), u = c, a = l3;
+        }
+      }
+      r(s, u, s.length, l3, i.length);
+    }), s;
+  }
+  return n.length && n.reduce(o), t;
+}
+function Ut(e, n) {
+  if (e.node(n).dummy) {
+    let t = e.predecessors(n);
+    if (t) return t.find((r) => e.node(r).dummy);
+  }
+}
+function Gn(e, n, t) {
+  if (n > t) {
+    let o = n;
+    n = t, t = o;
+  }
+  let r = e[n];
+  r || (e[n] = r = {}), r[t] = true;
+}
+function Jt(e, n, t) {
+  if (n > t) {
+    let o = n;
+    n = t, t = o;
+  }
+  let r = e[n];
+  return r !== void 0 && Object.hasOwn(r, t);
+}
+function Kt(e, n, t, r, o) {
+  let i = {}, s = {}, a = {};
+  return n.forEach((l3) => {
+    l3.forEach((u, d) => {
+      i[u] = u, s[u] = u, a[u] = d;
+    });
+  }), n.forEach((l3) => {
+    let u = -1, d = -1, c = false, f2 = l3, h2 = l3.findIndex((p) => (o == null ? void 0 : o.includes(p)) || Nn(p, e, o));
+    h2 > 0 && (f2 = [l3[h2], ...l3.slice(0, h2), ...l3.slice(h2 + 1)], c = true), f2.forEach((p) => {
+      var y2;
+      let E2 = r(p);
+      if (E2 && E2.length) {
+        o != null && o.includes(p) && (E2 = E2.filter((g) => Nn(g, e, o)));
+        let L2 = E2.sort((g, m) => {
+          let w = a[g], k2 = a[m];
+          return (w !== void 0 ? w : 0) - (k2 !== void 0 ? k2 : 0);
+        }), b = (L2.length - 1) / 2;
+        for (let g = Math.floor(b), m = Math.ceil(b); g <= m; ++g) {
+          let w = L2[g];
+          if (w === void 0) continue;
+          let k2 = a[w];
+          if (k2 !== void 0 && s[p] === p && u < k2 && a[w] !== d && !Jt(t, p, w)) {
+            let _2 = i[w];
+            _2 !== void 0 && (s[w] = p, s[p] = i[p] = _2, u = k2, c && (u = -1, d = (y2 = a[w]) != null ? y2 : -1, c = false));
+          }
+        }
+      }
+    });
+  }), { root: i, align: s };
+}
+function Qt(e, n, t, r, o = false) {
+  let i = {}, s = Zt(e, n, t, o), a = o ? "borderLeft" : "borderRight";
+  function l3(h2, p) {
+    let E2 = s.nodes().slice(), y2 = {}, L2 = E2.pop();
+    for (; L2; ) {
+      if (y2[L2]) h2(L2);
+      else {
+        y2[L2] = true, E2.push(L2);
+        for (let b of p(L2)) E2.push(b);
+      }
+      L2 = E2.pop();
+    }
+  }
+  function u(h2) {
+    let p = s.inEdges(h2);
+    p ? i[h2] = p.reduce((E2, y2) => {
+      var g;
+      let L2 = (g = i[y2.v]) != null ? g : 0, b = s.edge(y2);
+      return Math.max(E2, L2 + (b !== void 0 ? b : 0));
+    }, 0) : i[h2] = 0;
+  }
+  function d(h2) {
+    let p = s.outEdges(h2), E2 = Number.POSITIVE_INFINITY;
+    p && (E2 = p.reduce((L2, b) => {
+      let g = i[b.w], m = s.edge(b);
+      return Math.min(L2, (g !== void 0 ? g : 0) - (m !== void 0 ? m : 0));
+    }, Number.POSITIVE_INFINITY));
+    let y2 = e.node(h2);
+    E2 !== Number.POSITIVE_INFINITY && y2.borderType !== a && (i[h2] = Math.max(i[h2] !== void 0 ? i[h2] : 0, E2));
+  }
+  function c(h2) {
+    return s.predecessors(h2) || [];
+  }
+  function f2(h2) {
+    return s.successors(h2) || [];
+  }
+  return l3(u, c), l3(d, f2), Object.keys(r).forEach((h2) => {
+    var E2;
+    let p = t[h2];
+    p !== void 0 && (i[h2] = (E2 = i[p]) != null ? E2 : 0);
+  }), i;
+}
+function Zt(e, n, t, r) {
+  let o = new T2(), i = e.graph(), s = rr(i.nodesep, i.edgesep, r);
+  return n.forEach((a) => {
+    let l3;
+    a.forEach((u) => {
+      let d = t[u];
+      if (d !== void 0) {
+        if (o.setNode(d), l3 !== void 0) {
+          let c = t[l3];
+          if (c !== void 0) {
+            let f2 = o.edge(c, d);
+            o.setEdge(c, d, Math.max(s(e, u, l3), f2 || 0));
+          }
+        }
+        l3 = u;
+      }
+    });
+  }), o;
+}
+function er(e, n) {
+  return Object.values(n).reduce((t, r) => {
+    let o = Number.NEGATIVE_INFINITY, i = Number.POSITIVE_INFINITY;
+    Object.entries(r).forEach(([a, l3]) => {
+      let u = or(e, a) / 2;
+      o = Math.max(l3 + u, o), i = Math.min(l3 - u, i);
+    });
+    let s = o - i;
+    return s < t[0] && (t = [s, r]), t;
+  }, [Number.POSITIVE_INFINITY, null])[1];
+}
+function nr(e, n) {
+  let t = Object.values(n), r = R2(Math.min, t), o = R2(Math.max, t);
+  ["u", "d"].forEach((i) => {
+    ["l", "r"].forEach((s) => {
+      let a = i + s, l3 = e[a];
+      if (!l3 || l3 === n) return;
+      let u = Object.values(l3), d = r - R2(Math.min, u);
+      s !== "l" && (d = o - R2(Math.max, u)), d && (e[a] = X2(l3, (c) => c + d));
+    });
+  });
+}
+function tr(e, n = void 0) {
+  let t = e.ul;
+  return t ? X2(t, (r, o) => {
+    var s, a;
+    if (n) {
+      let l3 = n.toLowerCase(), u = e[l3];
+      if (u && u[o] !== void 0) return u[o];
+    }
+    let i = Object.values(e).map((l3) => {
+      let u = l3[o];
+      return u !== void 0 ? u : 0;
+    }).sort((l3, u) => l3 - u);
+    return (((s = i[1]) != null ? s : 0) + ((a = i[2]) != null ? a : 0)) / 2;
+  }) : {};
+}
+function vn(e, n) {
+  let t = P2(e), r = Object.assign(qt(e, t), $t(e, t)), o = {}, i;
+  ["u", "d"].forEach((a) => {
+    i = a === "u" ? t : Object.values(t).reverse(), ["l", "r"].forEach((l3) => {
+      l3 === "r" && (i = i.map((f2) => Object.values(f2).reverse()));
+      let d = Kt(e, i, r, (f2) => (a === "u" ? e.predecessors(f2) : e.successors(f2)) || [], n), c = Qt(e, i, d.root, d.align, l3 === "r");
+      l3 === "r" && (c = X2(c, (f2) => -f2)), o[a + l3] = c;
+    });
+  });
+  let s = er(e, o);
+  return nr(o, s), tr(o, e.graph().align);
+}
+function rr(e, n, t) {
+  return (r, o, i) => {
+    let s = r.node(o), a = r.node(i), l3 = 0, u;
+    if (l3 += s.width / 2, Object.hasOwn(s, "labelpos")) switch (s.labelpos.toLowerCase()) {
+      case "l":
+        u = -s.width / 2;
+        break;
+      case "r":
+        u = s.width / 2;
+        break;
+    }
+    if (u && (l3 += t ? u : -u), u = void 0, l3 += (s.dummy ? n : e) / 2, l3 += (a.dummy ? n : e) / 2, l3 += a.width / 2, Object.hasOwn(a, "labelpos")) switch (a.labelpos.toLowerCase()) {
+      case "l":
+        u = a.width / 2;
+        break;
+      case "r":
+        u = -a.width / 2;
+        break;
+    }
+    return u && (l3 += t ? u : -u), l3;
+  };
+}
+function or(e, n) {
+  return e.node(n).width;
+}
+function Nn(e, n, t) {
+  var s;
+  if (!t) return false;
+  let r = (s = n.node(e)) == null ? void 0 : s.edgeObj;
+  if (!r || n.node(e).edgeLabel.reversed) return false;
+  let o = t.indexOf(r == null ? void 0 : r.v), i = t.indexOf(r == null ? void 0 : r.w);
+  return o !== -1 && i !== -1 && o === (i + 1) % t.length || o === (i - 1) % t.length;
+}
+function kn(e, n) {
+  e = Z(e), ir(e), Object.entries(vn(e, n)).forEach(([t, r]) => e.node(t).x = r);
+}
+function ir(e) {
+  let n = P2(e), t = e.graph(), r = t.ranksep, o = t.rankalign, i = 0;
+  n.forEach((s) => {
+    let a = s.reduce((l3, u) => {
+      var c;
+      let d = (c = e.node(u).height) != null ? c : 0;
+      return l3 > d ? l3 : d;
+    }, 0);
+    s.forEach((l3) => {
+      let u = e.node(l3);
+      o === "top" ? u.y = i + u.height / 2 : o === "bottom" ? u.y = i + a - u.height / 2 : u.y = i + a / 2;
+    }), i += a + r;
+  });
+}
+var xn2 = /* @__PURE__ */ new WeakMap();
+function Oe2(e, n = {}) {
+  return Rn2(e, q2, n), e;
+}
+function _n(e, n, t) {
+  let r = n;
+  for (; r !== void 0; ) {
+    let o = e.parent(r);
+    if (o === t) return r;
+    r = o;
+  }
+}
+function Rn2(e, n, t) {
+  var L2;
+  let r = e.nodes().filter((b) => e.children(b).length), o = {};
+  r.forEach((b) => {
+    let g = e.node(b);
+    if (g && g.rankdir) {
+      let m = new T2({ multigraph: true, compound: true });
+      m.setGraph({ rankdir: g.rankdir });
+      let w = e.children(b);
+      w.forEach((v) => {
+        let N2 = { ...e.node(v) };
+        m.setNode(v, N2);
+        let O2 = e.parent(v);
+        O2 && O2 !== b && w.includes(O2) && m.setParent(v, O2);
+      });
+      let k2 = /* @__PURE__ */ new Set();
+      e.edges().forEach((v) => {
+        let N2 = _n(e, v.v, b), O2 = _n(e, v.w, b);
+        if (N2 && O2 && N2 !== O2) {
+          let W2 = `${N2}\0${O2}`;
+          k2.has(W2) || (k2.add(W2), m.setEdge(N2, O2, { ...e.edge(v) }));
+        }
+      }), Rn2(m, n, t);
+      let _2 = jn(m);
+      On(_2, n, t, null), Cn(m, _2);
+      let C2 = 1 / 0, j2 = 1 / 0, I2 = -1 / 0, S2 = -1 / 0;
+      m.nodes().forEach((v) => {
+        if (v === b) return;
+        let N2 = m.node(v);
+        N2 && typeof N2.x == "number" && typeof N2.y == "number" && typeof N2.width == "number" && typeof N2.height == "number" && (C2 = Math.min(C2, N2.x - N2.width / 2), I2 = Math.max(I2, N2.x + N2.width / 2), j2 = Math.min(j2, N2.y - N2.height / 2), S2 = Math.max(S2, N2.y + N2.height / 2));
+      }), (!isFinite(C2) || !isFinite(j2) || !isFinite(I2) || !isFinite(S2)) && (C2 = j2 = 0, I2 = S2 = 0);
+      let G2 = I2 - C2, x2 = S2 - j2;
+      o[b] = { minX: C2, minY: j2, maxX: I2, maxY: S2, width: G2, height: x2, offsetX: C2, offsetY: j2 }, g._dagreClusterSubgraph = m;
+    }
+  });
+  let i = [], s = (b) => {
+    let g = [], m = (e.children(b) || []).filter((w) => w !== b);
+    for (; m.length > 0; ) {
+      let w = m.shift();
+      g.push(w), (e.children(w) || []).filter((k2) => k2 !== w).forEach((k2) => m.push(k2));
+    }
+    return g;
+  }, a = /* @__PURE__ */ new Map();
+  r.forEach((b) => {
+    let g = e.node(b);
+    g && g.rankdir && o[b] && a.set(b, (e.children(b) || []).filter((m) => m !== b));
+  });
+  let l3 = new Set([...a.values()].flat()), u = /* @__PURE__ */ new Map();
+  a.forEach((b, g) => {
+    l3.has(g) || u.set(g, s(g));
+  });
+  let d = new Set([...u.values()].flat()), c = (b) => {
+    for (let [g, m] of u) if (m.includes(b)) return g;
+    return b;
+  }, f2 = [];
+  e.edges().forEach((b) => {
+    (d.has(b.v) || d.has(b.w)) && f2.push({ edge: b, label: e.edge(b) });
+  });
+  let h2 = /* @__PURE__ */ new Map();
+  d.forEach((b) => {
+    let g = e.parent(b);
+    h2.set(b, typeof g == "string" ? g : void 0);
+  }), u.forEach((b, g) => {
+    let m = e.node(g), w = [];
+    b.forEach((C2) => {
+      let j2 = e.node(C2);
+      j2 && (w.push({ id: C2, node: j2, parent: h2.get(C2) }), e.removeNode(C2));
+    });
+    let k2 = f2.filter(({ edge: C2 }) => b.includes(C2.v) || b.includes(C2.w)), _2 = o[g];
+    m && (i.push({ clusterId: g, subgraph: m._dagreClusterSubgraph, bounds: _2, children: b, removedNodes: w, removedEdges: k2 }), m.width = _2.width, m.height = _2.height);
+  });
+  let p = /* @__PURE__ */ new Set();
+  f2.forEach(({ edge: b, label: g }) => {
+    let m = c(b.v), w = c(b.w);
+    if (m !== w && e.hasNode(m) && e.hasNode(w)) {
+      let k2 = `${m}\0${w}`;
+      p.has(k2) || (p.add(k2), e.setEdge(m, w, { ...g, width: 0, height: 0 }));
+    }
+  });
+  let E2 = jn(e), y2 = On(E2, n, t, (L2 = xn2.get(e)) != null ? L2 : null);
+  xn2.set(e, y2), Cn(e, E2), p.forEach((b) => {
+    let g = b.indexOf("\0"), m = b.slice(0, g), w = b.slice(g + 1);
+    e.hasEdge(m, w) && e.removeEdge(m, w);
+  }), i.forEach(({ clusterId: b, subgraph: g, bounds: m, removedNodes: w, removedEdges: k2 }) => {
+    var G2, x2;
+    let _2 = e.node(b), C2 = (G2 = _2 == null ? void 0 : _2.x) != null ? G2 : 0, j2 = (x2 = _2 == null ? void 0 : _2.y) != null ? x2 : 0, I2 = (m.minX + m.maxX) / 2, S2 = (m.minY + m.maxY) / 2;
+    w.forEach(({ id: v, node: N2, parent: O2 }) => {
+      e.setNode(v, N2), O2 !== void 0 && e.setParent(v, O2);
+    }), k2.forEach(({ edge: v, label: N2 }) => {
+      e.setEdge(v, N2);
+    }), g.nodes().forEach((v) => {
+      if (v === b) return;
+      let N2 = g.node(v), O2 = e.node(v);
+      O2 && N2 && typeof N2.x == "number" && typeof N2.y == "number" && (O2.x = C2 + (N2.x - I2), O2.y = j2 + (N2.y - S2));
+    }), delete _2._dagreClusterSubgraph;
+  }), r.forEach((b) => {
+    var w, k2;
+    let g = e.node(b), m = o[b];
+    if (g && g.rankdir && g._dagreClusterSubgraph && m) {
+      let _2 = g._dagreClusterSubgraph, C2 = (w = g.x) != null ? w : 0, j2 = (k2 = g.y) != null ? k2 : 0, I2 = (m.minX + m.maxX) / 2, S2 = (m.minY + m.maxY) / 2;
+      _2.nodes().forEach((G2) => {
+        if (G2 === b) return;
+        let x2 = _2.node(G2), v = e.node(G2);
+        if (v && x2 && typeof x2.x == "number" && typeof x2.y == "number") {
+          let N2 = x2.x - I2, O2 = x2.y - S2;
+          v.x = C2 + N2, v.y = j2 + O2;
+        }
+      }), delete g._dagreClusterSubgraph;
+    }
+  });
+}
+function On(e, n, t, r = null) {
+  var l3, u;
+  let o = (t == null ? void 0 : t.useDynamic) !== false, i = o && (l3 = r == null ? void 0 : r.graph) != null ? l3 : null, s = o && (u = r == null ? void 0 : r.rawNodes) != null ? u : null;
+  n("    makeSpaceForEdgeLabels", () => hr(e)), n("    removeSelfEdges", () => Nr(e)), n("    acyclic", () => Ue2(e, i)), n("    nestingGraph.run", () => un(e)), n("    rank", () => dn(Z(e))), n("    injectEdgeLabelProxies", () => br(e)), n("    removeEmptyRanks", () => Be2(e)), n("    nestingGraph.cleanup", () => fn2(e)), n("    normalizeRanks", () => We2(e)), n("    assignRankMinMax", () => gr(e)), n("    removeEdgeLabelProxies", () => pr(e)), n("    normalize.run", () => Ke2(e)), n("    parentDummyChains", () => ln(e)), n("    addBorderSegments", () => bn(e)), n("    order", () => re2(e, t, s)), n("    insertSelfEdges", () => Gr(e)), n("    adjustCoordinateSystem", () => pn(e)), n("    position", () => kn(e, t.corePath)), n("    positionSelfEdges", () => vr(e));
+  let a = JSON.parse(JSON.stringify(e._nodes));
+  return n("    removeBorderNodes", () => wr(e)), n("    normalize.undo", () => Qe2(e)), n("    fixupEdgeLabelCoords", () => Lr(e)), n("    undoCoordinateSystem", () => mn2(e)), n("    translateGraph", () => mr(e)), n("    assignNodeIntersects", () => Er(e)), n("    reversePoints", () => yr(e)), n("    acyclic.undo", () => Je2(e)), { graph: e, rawNodes: a };
+}
+function Cn(e, n) {
+  e.nodes().forEach((t) => {
+    let r = e.node(t), o = n.node(t);
+    r && (r.x = o.x, r.y = o.y, r.order = o.order, r.rank = o.rank, n.children(t).length && (r.width = o.width, r.height = o.height));
+  }), e.edges().forEach((t) => {
+    let r = e.edge(t), o = n.edge(t);
+    r.points = o.points, Object.hasOwn(o, "x") && (r.x = o.x, r.y = o.y);
+  }), e.graph().width = n.graph().width, e.graph().height = n.graph().height;
+}
+var sr = ["nodesep", "edgesep", "ranksep", "marginx", "marginy"];
+var ar = { ranksep: 50, edgesep: 20, nodesep: 50, rankdir: "TB", rankalign: "center" };
+var dr = ["acyclicer", "ranker", "rankdir", "align", "rankalign"];
+var lr = ["width", "height", "rank"];
+var Tn2 = { width: 0, height: 0 };
+var ur = ["minlen", "weight", "width", "height", "labeloffset"];
+var cr = { minlen: 1, weight: 1, width: 0, height: 0, labeloffset: 10, labelpos: "r" };
+var fr = ["labelpos"];
+function jn(e) {
+  let n = new T2({ multigraph: true, compound: true }), t = _e2(e.graph());
+  return n.setGraph(Object.assign({}, ar, xe2(t, sr), B2(t, dr))), e.nodes().forEach((r) => {
+    let o = _e2(e.node(r)), i = xe2(o, lr);
+    Object.keys(Tn2).forEach((a) => {
+      i[a] === void 0 && (i[a] = Tn2[a]);
+    }), n.setNode(r, i);
+    let s = e.parent(r);
+    s !== void 0 && n.setParent(r, s);
+  }), e.edges().forEach((r) => {
+    let o = _e2(e.edge(r));
+    n.setEdge(r, Object.assign({}, cr, xe2(o, ur), B2(o, fr)));
+  }), n;
+}
+function hr(e) {
+  let n = e.graph();
+  n.ranksep /= 2, e.edges().forEach((t) => {
+    var o;
+    let r = e.edge(t);
+    r.minlen *= 2, ((o = r.labelpos) != null ? o : "r").toLowerCase() !== "c" && (n.rankdir === "TB" || n.rankdir === "BT" ? r.width += r.labeloffset : r.height += r.labeloffset);
+  });
+}
+function br(e) {
+  e.edges().forEach((n) => {
+    let t = e.edge(n);
+    if (t.width && t.height) {
+      let r = e.node(n.v), i = { rank: (e.node(n.w).rank - r.rank) / 2 + r.rank, e: n };
+      M(e, "edge-proxy", i, "_ep");
+    }
+  });
+}
+function gr(e) {
+  let n = 0;
+  e.nodes().forEach((t) => {
+    let r = e.node(t);
+    r.borderTop && (r.minRank = e.node(r.borderTop).rank, r.maxRank = e.node(r.borderBottom).rank, n = Math.max(n, r.maxRank));
+  }), e.graph().maxRank = n;
+}
+function pr(e) {
+  e.nodes().forEach((n) => {
+    let t = e.node(n);
+    if (t.dummy === "edge-proxy") {
+      let r = t;
+      e.edge(r.e).labelRank = t.rank, e.removeNode(n);
+    }
+  });
+}
+function mr(e) {
+  let n = Number.POSITIVE_INFINITY, t = 0, r = Number.POSITIVE_INFINITY, o = 0, i = e.graph(), s = i.marginx || 0, a = i.marginy || 0;
+  function l3(u) {
+    let d = u.x, c = u.y, f2 = u.width, h2 = u.height;
+    n = Math.min(n, d - f2 / 2), t = Math.max(t, d + f2 / 2), r = Math.min(r, c - h2 / 2), o = Math.max(o, c + h2 / 2);
+  }
+  e.nodes().forEach((u) => l3(e.node(u))), e.edges().forEach((u) => {
+    let d = e.edge(u);
+    Object.hasOwn(d, "x") && l3(d);
+  }), n -= s, r -= a, e.nodes().forEach((u) => {
+    let d = e.node(u);
+    d.x -= n, d.y -= r;
+  }), e.edges().forEach((u) => {
+    let d = e.edge(u);
+    d.points.forEach((c) => {
+      c.x -= n, c.y -= r;
+    }), Object.hasOwn(d, "x") && (d.x -= n), Object.hasOwn(d, "y") && (d.y -= r);
+  }), i.width = t - n + s, i.height = o - r + a;
+}
+function Er(e) {
+  e.edges().forEach((n) => {
+    if (n.v === n.w) return;
+    let t = e.edge(n), r = e.node(n.v), o = e.node(n.w), i, s;
+    t.points ? (i = t.points[0], s = t.points[t.points.length - 1]) : (t.points = [], i = o, s = r), t.points.unshift(se2(r, i)), t.points.push(se2(o, s));
+  });
+}
+function Lr(e) {
+  e.edges().forEach((n) => {
+    let t = e.edge(n);
+    if (Object.hasOwn(t, "x")) switch ((t.labelpos === "l" || t.labelpos === "r") && (t.width -= t.labeloffset), t.labelpos) {
+      case "l":
+        t.x -= t.width / 2 + t.labeloffset;
+        break;
+      case "r":
+        t.x += t.width / 2 + t.labeloffset;
+        break;
+    }
+  });
+}
+function yr(e) {
+  e.edges().forEach((n) => {
+    let t = e.edge(n);
+    t.reversed && t.points.reverse();
+  });
+}
+function wr(e) {
+  e.nodes().forEach((n) => {
+    if (e.children(n).length) {
+      let t = e.node(n), r = e.node(t.borderTop), o = e.node(t.borderBottom), i = e.node(t.borderLeft[t.borderLeft.length - 1]), s = e.node(t.borderRight[t.borderRight.length - 1]);
+      t.width = Math.abs(s.x - i.x), t.height = Math.abs(o.y - r.y), t.x = i.x + t.width / 2, t.y = r.y + t.height / 2;
+    }
+  }), e.nodes().forEach((n) => {
+    e.node(n).dummy === "border" && e.removeNode(n);
+  });
+}
+function Nr(e) {
+  e.edges().forEach((n) => {
+    if (n.v === n.w) {
+      let t = e.node(n.v);
+      t.selfEdges || (t.selfEdges = []), t.selfEdges.push({ e: n, label: e.edge(n) }), e.removeEdge(n);
+    }
+  });
+}
+function Gr(e) {
+  P2(e).forEach((t) => {
+    let r = 0;
+    t.forEach((o, i) => {
+      let s = e.node(o);
+      typeof s.rank != "number" && (s.rank = 0), s.order = i + r, (s.selfEdges || []).forEach((a) => {
+        M(e, "selfedge", { width: a.label.width, height: a.label.height, rank: s.rank, order: i + ++r, e: a.e, edgeLabel: a.label }, "_se"), (!Array.isArray(a.label.points) || a.label.points.length !== 7) && (a.label.points = [{ x: 0, y: -10 }, { x: 0, y: -10 }, { x: 0, y: 0 }, { x: 0, y: 10 }, { x: 0, y: 10 }, { x: 0, y: 0 }, { x: 0, y: 0 }]);
+      }), delete s.selfEdges;
+    });
+  });
+}
+function vr(e) {
+  e.nodes().forEach((n) => {
+    let t = e.node(n), r = (o) => typeof o == "number" && isFinite(o);
+    if (t.dummy === "selfedge") {
+      let o = t, i = e.node(o.e.v), s = r(i == null ? void 0 : i.x) ? i.x : 0, a = r(i == null ? void 0 : i.y) ? i.y : 0, l3 = r(i == null ? void 0 : i.width) ? i.width : 0, u = r(i == null ? void 0 : i.height) ? i.height : 0, d = r(t.x) ? t.x : s, c = r(t.y) ? t.y : a, f2 = l3 / 2, h2 = u / 2;
+      o.edgeLabel.points = [{ x: d + f2, y: c - h2 }, { x: d + f2, y: c - h2 }, { x: d, y: c }, { x: d - f2, y: c + h2 }, { x: d - f2, y: c + h2 }, { x: d, y: c }, { x: d, y: c }], o.edgeLabel.x = d, o.edgeLabel.y = c, e.setEdge(o.e, o.edgeLabel), e.removeNode(n);
+    } else t && Array.isArray(t.selfEdges) && t.selfEdges.forEach((o) => {
+      if (!Array.isArray(o.label.points) || o.label.points.length !== 7) {
+        let i = r(t.x) ? t.x : 0, s = r(t.y) ? t.y : 0, a = r(t.width) ? t.width : 0, l3 = r(t.height) ? t.height : 0, u = a / 2, d = l3 / 2;
+        o.label.points = [{ x: i + u, y: s - d }, { x: i + u, y: s - d }, { x: i, y: s }, { x: i - u, y: s + d }, { x: i - u, y: s + d }, { x: i, y: s }, { x: i, y: s }];
+      }
+    });
+  });
+}
+function xe2(e, n) {
+  return X2(B2(e, n), Number);
+}
+function _e2(e) {
+  let n = {};
+  return e && Object.entries(e).forEach(([t, r]) => {
+    typeof t == "string" && (t = t.toLowerCase()), n[t] = r;
+  }), n;
+}
+function Ce2(e) {
+  let n = P2(e), t = new T2({ compound: true, multigraph: true }).setGraph({});
+  return e.nodes().forEach((r) => {
+    t.setNode(r, { label: r }), t.setParent(r, "layer" + e.node(r).rank);
+  }), e.edges().forEach((r) => t.setEdge(r.v, r.w, {}, r.name)), n.forEach((r, o) => {
+    let i = "layer" + o;
+    t.setNode(i, { rank: "same" }), r.reduce((s, a) => (t.setEdge(s, a, { style: "invis" }), a));
+  }), t;
+}
+var kr = { graphlib: ie2, version: ue2, layout: Oe2, debug: Ce2, util: { time: le2, notime: q2 } };
+var $o = kr;
+
+// src/components/flow.js
+var FS2 = 13;
+var LH2 = 17;
+var TEXT_MAX = 150;
+var EDGE_FS = 11.5;
+var DIRS = /* @__PURE__ */ new Set(["TB", "LR", "BT", "RL"]);
+var BRACKETS = [
+  { open: "[(", close: ")]", shape: "db" },
+  { open: "[", close: "]", shape: "rect" },
+  { open: "(", close: ")", shape: "round" },
+  { open: "{", close: "}", shape: "diamond" }
+];
+var ARROW = /^\s*(-->|->)\s*/;
+var flow_default = {
+  name: "flow",
+  summary: "\u6D41\u7A0B\u56FE / \u67B6\u6784\u56FE\uFF08\u81EA\u52A8\u5E03\u5C40\uFF09",
+  syntax: `\`\`\`flow [TB|LR|BT|RL]
+A -> B: \u6807\u7B7E                  \u2190 \u5B9E\u7EBF\uFF0C\u5192\u53F7\u540E\u4E3A\u8FB9\u6807\u7B7E
+A --> C                       \u2190 \u865A\u7EBF
+A -> B -> C                   \u2190 \u94FE\u5F0F
+A -> B & C                    \u2190 \u6247\u51FA
+(\u5F00\u59CB)  {\u5224\u65AD?}  [(\u6570\u636E\u5E93)]  [\u542B: \u5192\u53F7\u7684\u6587\u672C]   \u2190 \u5706\u89D2 / \u83F1\u5F62 / \u5706\u67F1 / \u77E9\u5F62
+*\u91CD\u70B9\u8282\u70B9                      \u2190 * \u524D\u7F00\u9AD8\u4EAE
+group \u5206\u7EC4\u540D: B, C            \u2190 \u628A\u8282\u70B9\u6846\u8FDB\u4E00\u4E2A\u5206\u7EC4
+\`\`\`
+- \u8282\u70B9\u4EE5\u62EC\u53F7\u5185\u7684\u6587\u5B57\u4F5C\u4E3A\u8EAB\u4EFD\uFF0C\u4E4B\u540E\u53EF\u76F4\u63A5\u5199\u6587\u5B57\u5F15\u7528\u3002\u9ED8\u8BA4\u65B9\u5411 TB\uFF08\u81EA\u4E0A\u800C\u4E0B\uFF09\u3002`,
+  example: "```flow LR\n(\u7528\u6237) -> \u7F51\u5173: HTTPS\n\u7F51\u5173 -> \u9274\u6743 & *\u4E1A\u52A1\u670D\u52A1\n\u4E1A\u52A1\u670D\u52A1 -> [(\u6570\u636E\u5E93)]\ngroup \u540E\u7AEF: \u9274\u6743, \u4E1A\u52A1\u670D\u52A1\n```",
+  render(text, { args, uid }) {
+    const model = parseFlow(text);
+    const dir = (args.match(/\b(TB|LR|BT|RL)\b/i)?.[1] ?? "TB").toUpperCase();
+    return `<figure class="am-diagram am-flow">${layout2(model, DIRS.has(dir) ? dir : "TB", uid())}</figure>`;
+  }
+};
+function parseFlow(text) {
+  const nodes = /* @__PURE__ */ new Map();
+  const edges = [];
+  const groups = [];
+  const upsert = (spec, line) => {
+    const prev = nodes.get(spec.id);
+    if (!prev) nodes.set(spec.id, { ...spec, line });
+    else nodes.set(spec.id, { ...prev, shape: spec.explicit ? spec.shape : prev.shape, hi: prev.hi || spec.hi });
+    return spec.id;
+  };
+  for (const { text: t, line } of contentLines(text)) {
+    const g = t.match(/^group\s+(.+?)\s*[:：]\s*(.+)$/i);
+    if (g) {
+      groups.push({ name: g[1], members: g[2].split(/[,，]/).map((s) => s.trim()).filter(Boolean), line });
+      continue;
+    }
+    const { chain, label } = parseChain(t, line);
+    const ids = chain.map((step) => ({ ...step, ids: step.nodes.map((n) => upsert(n, line)) }));
+    for (let k2 = 1; k2 < ids.length; k2++) {
+      const isLast = k2 === ids.length - 1;
+      for (const from of ids[k2 - 1].ids) {
+        for (const to of ids[k2].ids) {
+          edges.push({ from, to, dashed: ids[k2].arrow === "-->", label: isLast ? label : "", line });
+        }
+      }
+    }
+  }
+  if (!nodes.size) throw new ComponentError("flow \u81F3\u5C11\u9700\u8981\u4E00\u4E2A\u8282\u70B9", 1);
+  for (const grp of groups) {
+    const missing = grp.members.filter((m) => !nodes.has(m));
+    if (missing.length) throw new ComponentError(`group ${grp.name} \u5F15\u7528\u4E86\u4E0D\u5B58\u5728\u7684\u8282\u70B9\uFF1A${missing.join("\u3001")}`, grp.line);
+  }
+  return { nodes, edges, groups };
+}
+function parseChain(t, line) {
+  const chain = [];
+  let pos = 0;
+  let arrow = null;
+  for (; ; ) {
+    const group = [];
+    for (; ; ) {
+      const { node, end } = parseNode(t, pos, line);
+      group.push(node);
+      pos = end;
+      const amp = t.slice(pos).match(/^\s*&\s*/);
+      if (!amp) break;
+      pos += amp[0].length;
+    }
+    chain.push({ arrow, nodes: group });
+    const a = t.slice(pos).match(ARROW);
+    if (!a) break;
+    arrow = a[1];
+    pos += a[0].length;
+  }
+  const rest = t.slice(pos).trim();
+  if (rest && !/^[:：]/.test(rest)) {
+    throw new ComponentError(`flow \u65E0\u6CD5\u89E3\u6790\uFF1A"${t}"\u3002\u5173\u7CFB\u5199\u4F5C A -> B: \u6807\u7B7E`, line);
+  }
+  return { chain, label: rest.replace(/^[:：]\s*/, "") };
+}
+function parseNode(t, start, line) {
+  let pos = start + t.slice(start).match(/^\s*/)[0].length;
+  const hi = t[pos] === "*";
+  if (hi) pos++;
+  const bracket = BRACKETS.find((b) => t.startsWith(b.open, pos));
+  let label;
+  let end;
+  if (bracket) {
+    const close = t.indexOf(bracket.close, pos + bracket.open.length);
+    if (close === -1) throw new ComponentError(`flow \u5F62\u72B6\u62EC\u53F7\u672A\u95ED\u5408\uFF1A\u7F3A\u5C11 ${bracket.close}`, line);
+    label = t.slice(pos + bracket.open.length, close).trim();
+    end = close + bracket.close.length;
+  } else {
+    const m = t.slice(pos).match(/^(.*?)(?=\s*(?:-->|->|&|[:：]|$))/);
+    label = m[1].trim();
+    end = pos + m[0].length;
+  }
+  if (!label) throw new ComponentError(`flow \u5B58\u5728\u7A7A\u8282\u70B9\uFF1A"${t}"`, line);
+  return { node: { id: label, label, shape: bracket?.shape ?? "rect", explicit: Boolean(bracket), hi }, end };
+}
+function nodeSize(node) {
+  const lines = wrap(node.label, TEXT_MAX, FS2);
+  const tw = Math.max(...lines.map((l3) => measure(l3, FS2)));
+  const th = lines.length * LH2;
+  const w = Math.max(tw + 28, 64);
+  const h2 = th + 18;
+  const size = {
+    rect: [w, h2],
+    round: [w + 12, h2],
+    diamond: [(tw + 28) * 1.5, h2 * 1.6],
+    db: [w, h2 + 14]
+  }[node.shape];
+  return { lines, width: size[0], height: size[1] };
+}
+function layout2({ nodes, edges, groups }, rankdir, id) {
+  const g = new $o.graphlib.Graph({ compound: groups.length > 0, multigraph: true });
+  g.setGraph({ rankdir, nodesep: 36, ranksep: 46, marginx: 14, marginy: groups.length ? 26 : 14 });
+  g.setDefaultEdgeLabel(() => ({}));
+  const key = new Map([...nodes.keys()].map((name, i) => [name, `n${i}`]));
+  const gkey = (i) => `g${i}`;
+  const sizes = /* @__PURE__ */ new Map();
+  for (const n of nodes.values()) {
+    const s = nodeSize(n);
+    sizes.set(n.id, s);
+    g.setNode(key.get(n.id), { width: s.width, height: s.height });
+  }
+  groups.forEach((grp, i) => {
+    g.setNode(gkey(i), { label: grp.name });
+    grp.members.forEach((m) => g.setParent(key.get(m), gkey(i)));
+  });
+  edges.forEach((e, i) => {
+    const label2 = e.label ? { label: e.label, width: measure(e.label, EDGE_FS) + 12, height: 18, labelpos: "c" } : {};
+    g.setEdge(key.get(e.from), key.get(e.to), label2, `e${i}`);
+  });
+  $o.layout(g);
+  const clusters = groups.map((grp, i) => {
+    const c = g.node(gkey(i));
+    const x2 = c.x - c.width / 2;
+    const y2 = c.y - c.height / 2;
+    return `<rect class="am-cluster" x="${f(x2)}" y="${f(y2)}" width="${f(c.width)}" height="${f(c.height)}" rx="4"/><text class="am-cluster-label" x="${f(x2 + 8)}" y="${f(y2 + 14)}">${esc(grp.name)}</text>`;
+  });
+  const stepOf = new Map([.../* @__PURE__ */ new Set([...[...nodes.values()].map((n) => n.line), ...edges.map((e) => e.line)])].sort((a, b) => a - b).map((l3, k2) => [l3, k2]));
+  const edgeSvg = edges.map((e, i) => {
+    const data = g.edge({ v: key.get(e.from), w: key.get(e.to), name: `e${i}` });
+    const pts = clipEnds(data.points, g.node(key.get(e.from)), nodes.get(e.from).shape, g.node(key.get(e.to)), nodes.get(e.to).shape);
+    const path = `<path class="am-edge${e.dashed ? " am-edge--dashed" : ""}" d="${smoothPath(pts)}" marker-end="url(#${id}-arrow)"/>`;
+    if (!e.label) return `<g data-step="${stepOf.get(e.line)}">${path}</g>`;
+    const w = measure(e.label, EDGE_FS) + 10;
+    return `<g data-step="${stepOf.get(e.line)}">${path}<g class="am-edge-label"><rect x="${f(data.x - w / 2)}" y="${f(data.y - 9)}" width="${f(w)}" height="18" rx="3"/>${textLines([e.label], data.x, data.y, LH2)}</g></g>`;
+  });
+  const nodeSvg = [...nodes.values()].map((n) => {
+    const { x: x2, y: y2 } = g.node(key.get(n.id));
+    const { width: w, height: h2, lines } = sizes.get(n.id);
+    return `<g class="am-node am-node--${n.shape}${n.hi ? " am-node--hi" : ""}" data-key="${esc(n.label)}" data-step="${stepOf.get(n.line)}">${shapeSvg(n.shape, x2, y2, w, h2)}${textLines(lines, x2, y2 + (n.shape === "db" ? 4 : 0), LH2)}</g>`;
+  });
+  const { width, height } = g.graph();
+  const label = `\u6D41\u7A0B\u56FE\uFF1A${[...nodes.keys()].slice(0, 8).join("\u3001")}`;
+  return `${svgOpen(width, height, label)}${arrowDefs(id)}<g>${clusters.join("")}</g><g>${edgeSvg.join("")}</g><g>${nodeSvg.join("")}</g></svg>`;
+}
+function shapeSvg(shape, x2, y2, w, h2) {
+  const l3 = x2 - w / 2;
+  const t = y2 - h2 / 2;
+  if (shape === "diamond") {
+    return `<polygon class="am-node-shape" points="${f(x2)},${f(t)} ${f(x2 + w / 2)},${f(y2)} ${f(x2)},${f(t + h2)} ${f(l3)},${f(y2)}"/>`;
+  }
+  if (shape === "db") {
+    const ry = 7;
+    return `<path class="am-node-shape" d="M${f(l3)},${f(t + ry)} A${f(w / 2)},${ry} 0 0 1 ${f(l3 + w)},${f(t + ry)} V${f(t + h2 - ry)} A${f(w / 2)},${ry} 0 0 1 ${f(l3)},${f(t + h2 - ry)} Z"/><path class="am-node-shape" d="M${f(l3)},${f(t + ry)} A${f(w / 2)},${ry} 0 0 0 ${f(l3 + w)},${f(t + ry)}"/>`;
+  }
+  const rx = shape === "round" ? h2 / 2 : 3;
+  return `<rect class="am-node-shape" x="${f(l3)}" y="${f(t)}" width="${f(w)}" height="${f(h2)}" rx="${f(rx)}"/>`;
+}
+function clipEnds(points, from, fromShape, to, toShape) {
+  const pts = points.map((p) => ({ ...p }));
+  if (fromShape === "diamond" && pts.length > 1) pts[0] = diamondPoint(from, pts[1]);
+  if (toShape === "diamond" && pts.length > 1) pts[pts.length - 1] = diamondPoint(to, pts[pts.length - 2]);
+  return pts;
+}
+function diamondPoint(node, toward) {
+  const dx = toward.x - node.x;
+  const dy = toward.y - node.y;
+  const k2 = Math.abs(dx) / (node.width / 2) + Math.abs(dy) / (node.height / 2);
+  if (k2 === 0) return { x: node.x, y: node.y };
+  return { x: node.x + dx / k2, y: node.y + dy / k2 };
+}
+
+// src/components/index.js
+var ALL = [callout_default, kv_default, timeline_default, annot_default, tree_default, limits_default, sequence_default, flow_default];
+var COMPONENTS = new Map(ALL.map((c) => [c.name, c]));
+var RAW_LANGS = /* @__PURE__ */ new Set(["html", "svg"]);
+
+// src/templates/panel.js
+function panelHtml(panel, { cols = 3, grid = true } = {}) {
+  const { attrs } = panel;
+  const span = Math.min(Number(attrs.span) || 1, cols);
+  const rows = Number(attrs.rows) || 1;
+  const layout3 = [
+    grid && span > 1 ? `grid-column: span ${span}` : "",
+    grid && rows > 1 ? `grid-row: span ${rows}` : ""
+  ].filter(Boolean).join("; ");
+  const style = layout3 ? ` style="${layout3}"` : "";
+  const cls = `${span > 1 ? " am-span-wide" : ""}${attrs.bare ? " am-panel--bare" : ""}`;
+  const meta = attrs.meta ? `<span class="am-panel-meta">${esc(attrs.meta)}</span>` : "";
+  const head = attrs.bare ? "" : `<header class="am-panel-head"><span class="am-panel-id">${esc(panel.id)}</span><h2>${esc(panel.title)}</h2>${meta}</header>
+`;
+  return `<section class="am-panel${cls}" id="panel-${esc(panel.id)}"${style}>
+${head}<div class="am-panel-body">${panel.html}</div>
+</section>`;
+}
+var RESERVED = /* @__PURE__ */ new Set(["template", "theme", "style", "mode", "cols", "title", "subtitle", "lang"]);
+function headHtml(meta, introHtml) {
+  const extras = Object.entries(meta).filter(([k2, v]) => !RESERVED.has(k2) && v !== "");
+  const metaRow = extras.length ? `<div class="am-head-meta">${extras.map(([k2, v]) => `<span><b>${esc(k2)}</b>${esc(v)}</span>`).join("")}</div>` : "";
+  const sub = meta.subtitle ? `<p class="am-sub">${esc(meta.subtitle)}</p>` : "";
+  const intro = introHtml ? `<div class="am-intro am-md">${introHtml}</div>` : "";
+  return `<header class="am-head"><h1>${esc(meta.title || "Untitled")}</h1>${sub}${metaRow}${intro}</header>`;
+}
+
+// src/templates/sheet.js
+var ruler = (side, labels) => `<div class="am-ruler am-ruler--${side}" aria-hidden="true">${labels.map((l3) => `<span>${l3}</span>`).join("")}</div>`;
+function fillRows(panels, cols) {
+  const spans = panels.map((p) => Math.max(1, Math.min(Number(p.attrs.span) || 1, cols)));
+  if (panels.some((p) => Number(p.attrs.rows) > 1)) return spans;
+  let used = 0;
+  return spans.map((span, i) => {
+    if (used + span > cols) used = 0;
+    used += span;
+    const next = spans[i + 1];
+    const fill = next === void 0 || used + next > cols ? cols - used : 0;
+    used = fill || used === cols ? 0 : used;
+    return span + fill;
+  });
+}
+function sheet({ meta, introHtml, panels }) {
+  const cols = Math.max(1, Math.min(Number(meta.cols) || 3, 12));
+  const spans = fillRows(panels, cols);
+  const placed = panels.map((p, i) => ({ ...p, attrs: { ...p.attrs, span: spans[i] } }));
+  const nums = Array.from({ length: 8 }, (_2, i) => i + 1);
+  const letters = ["A", "B", "C", "D"];
+  return `<main class="am-sheet">
+${headHtml(meta, introHtml)}
+<div class="am-frame">
+${ruler("top", nums)}${ruler("bottom", nums)}${ruler("left", letters)}${ruler("right", letters)}
+<div class="am-grid" style="--cols: ${cols}">
+${placed.map((p) => panelHtml(p, { cols })).join("\n")}
+</div>
+</div>
+</main>`;
+}
+
+// src/templates/doc.js
+function doc({ meta, introHtml, panels }) {
+  const withToc = panels.length >= 3;
+  const toc = withToc ? `<nav class="am-toc" aria-label="\u76EE\u5F55">${panels.map((p) => `<a href="#panel-${esc(p.id)}">${esc(p.id)} \xB7 ${esc(p.title)}</a>`).join("")}</nav>` : "";
+  return `<main class="am-doc">
+${headHtml(meta, introHtml)}
+<div class="am-doc-layout${withToc ? "" : " am-doc-layout--notoc"}">
+${toc}<div class="am-doc-body">
+${panels.map((p) => panelHtml(p, { grid: false })).join("\n")}
+</div>
+</div>
+</main>`;
+}
+
+// src/templates/index.js
+var TEMPLATES = { sheet, doc };
+
+// src/themes/index.js
+var SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif';
+var MONO = 'ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace';
+var JA_SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans CJK JP", "Noto Sans JP", "PingFang SC", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif';
+var JA_SERIF = '"CMU Serif", "Latin Modern Roman", "Iowan Old Style", "Palatino", "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", "Noto Serif JP", "Songti SC", serif';
+var shared = { "--font-sans": SANS, "--font-mono": MONO };
+var THEMES = Object.freeze({
+  blueprint: {
+    label: "\u56FE\u7EB8 Blueprint",
+    common: { ...shared, "--radius": "0px", "--shadow": "none", "--bw": "1.5px", "--head-font": "var(--font-sans)" },
+    light: {
+      "--bg": "#f6f6f3",
+      "--paper": "#ffffff",
+      "--ink": "#16181d",
+      "--ink-2": "#4b5260",
+      "--ink-3": "#8b929e",
+      "--line": "#1d2026",
+      "--line-2": "#d6dae1",
+      "--fill": "#f3f5f8",
+      "--accent": "#1d5fbf",
+      "--accent-bg": "#e4ecf8",
+      "--ok": "#1d5fbf",
+      "--ok-bg": "#e4ecf8",
+      "--err": "#c62828",
+      "--err-bg": "#fbeaea",
+      "--warn": "#a8620a",
+      "--warn-bg": "#fdf3e2",
+      "--head-bg": "#16181d",
+      "--head-fg": "#ffffff"
+    },
+    dark: {
+      "--bg": "#081322",
+      "--paper": "#0d1c31",
+      "--ink": "#e6edf7",
+      "--ink-2": "#a9b8cc",
+      "--ink-3": "#6b7f99",
+      "--line": "#c9d6e8",
+      "--line-2": "#23385a",
+      "--fill": "#12253f",
+      "--accent": "#6ea8ff",
+      "--accent-bg": "#16305a",
+      "--ok": "#6ea8ff",
+      "--ok-bg": "#16305a",
+      "--err": "#ff7070",
+      "--err-bg": "#3b1620",
+      "--warn": "#f0b14a",
+      "--warn-bg": "#3a2a10",
+      "--head-bg": "#e6edf7",
+      "--head-fg": "#081322"
+    }
+  },
+  shadcn: {
+    label: "\u5361\u7247 shadcn",
+    common: { ...shared, "--radius": "8px", "--shadow": "0 1px 2px 0 rgba(0,0,0,0.05)", "--bw": "1px", "--head-font": "var(--font-sans)" },
+    light: {
+      "--bg": "#fafafa",
+      "--paper": "#ffffff",
+      "--ink": "#09090b",
+      "--ink-2": "#71717a",
+      "--ink-3": "#a1a1aa",
+      "--line": "#e4e4e7",
+      "--line-2": "#f0f0f2",
+      "--fill": "#f4f4f5",
+      "--accent": "#2563eb",
+      "--accent-bg": "#eff6ff",
+      "--ok": "#16a34a",
+      "--ok-bg": "#f0fdf4",
+      "--err": "#dc2626",
+      "--err-bg": "#fef2f2",
+      "--warn": "#d97706",
+      "--warn-bg": "#fffbeb",
+      "--head-bg": "#18181b",
+      "--head-fg": "#fafafa"
+    },
+    dark: {
+      "--bg": "#09090b",
+      "--paper": "#121215",
+      "--ink": "#fafafa",
+      "--ink-2": "#a1a1aa",
+      "--ink-3": "#71717a",
+      "--line": "#27272a",
+      "--line-2": "#1c1c1f",
+      "--fill": "#18181b",
+      "--accent": "#60a5fa",
+      "--accent-bg": "#172554",
+      "--ok": "#4ade80",
+      "--ok-bg": "#052e16",
+      "--err": "#f87171",
+      "--err-bg": "#450a0a",
+      "--warn": "#fbbf24",
+      "--warn-bg": "#451a03",
+      "--head-bg": "#fafafa",
+      "--head-fg": "#18181b"
+    }
+  }
+});
+var block = (selector, vars) => `${selector} {
+${Object.entries(vars).map(([k2, v]) => `  ${k2}: ${v};`).join("\n")}
+}`;
+function themeCss() {
+  return Object.entries(THEMES).map(([name, t]) => {
+    const sel = `html[data-theme="${name}"]`;
+    return [
+      block(`${sel}, ${sel}[data-mode="light"]`, { ...t.common, ...t.light }),
+      block(`${sel}[data-mode="dark"]`, t.dark),
+      `@media (prefers-color-scheme: dark) {
+${block(`${sel}[data-mode="auto"]`, t.dark)}
+}`
+    ].join("\n");
+  }).join("\n\n") + `
+
+${JA_FONT_CSS}`;
+}
+var JA_FONT_CSS = [
+  block('html[lang="ja"][data-theme][data-mode]', { "--font-sans": JA_SANS }),
+  block('html[lang="ja"][data-theme="3b1b"][data-mode]', { "--v-title-font": JA_SERIF })
+].join("\n");
+function pageCss() {
+  return `${themeCss()}
+
+${BASE_CSS}`;
+}
+
+// src/lint/wordlist.en.js
+var EN_WORDS = Object.freeze({
+  "utilize": "use",
+  "utilise": "use",
+  "utilization": "use",
+  "commence": "start",
+  "commenced": "started",
+  "prior to": "before",
+  "in order to": "to",
+  "approximately": "about",
+  "ensure": "make sure",
+  "replenish": "fill",
+  "terminate": "stop",
+  "facilitate": "help",
+  "leverage": "use",
+  "numerous": "many",
+  "subsequently": "then",
+  "endeavor": "try",
+  "ascertain": "find",
+  "sufficient": "enough",
+  "demonstrate": "show",
+  "assist": "help",
+  "obtain": "get",
+  "initiate": "start",
+  "modify": "change",
+  "possess": "have",
+  "purchase": "buy",
+  "in the event that": "if",
+  "due to the fact that": "because",
+  "at this point in time": "now",
+  "a number of": "some",
+  "with regard to": "about",
+  "in addition": "also"
+});
+
+// src/lint/wordlist.zh.js
+var ZH_LIGHT_VERBS = Object.freeze([
+  { re: /进行(?![中时])了?([一-龥]{2})/g, label: "\u8FDB\u884C" },
+  { re: /(?:加以|予以)([一-龥]{2})/g, label: "\u52A0\u4EE5/\u4E88\u4EE5" },
+  { re: /[做作]出了?([一-龥]{2})/g, label: "\u505A\u51FA" }
+]);
+var ZH_CLICHES = Object.freeze([
+  "\u8D4B\u80FD",
+  "\u6293\u624B",
+  "\u95ED\u73AF",
+  "\u6253\u901A",
+  "\u5168\u65B9\u4F4D",
+  "\u591A\u7EF4\u5EA6",
+  "\u6DF1\u5EA6\u878D\u5408",
+  "\u663E\u8457\u63D0\u5347",
+  "\u81F3\u5173\u91CD\u8981",
+  "\u4E0D\u53EF\u6216\u7F3A",
+  "\u4E0E\u6B64\u540C\u65F6",
+  "\u7EFC\u4E0A\u6240\u8FF0",
+  "\u503C\u5F97\u6CE8\u610F\u7684\u662F",
+  "\u603B\u800C\u8A00\u4E4B",
+  "\u4F17\u6240\u5468\u77E5",
+  "\u6BCB\u5EB8\u7F6E\u7591",
+  "\u4E00\u7AD9\u5F0F",
+  "\u5E95\u5C42\u903B\u8F91",
+  "\u9897\u7C92\u5EA6",
+  "\u65B9\u6CD5\u8BBA"
+]);
+
+// src/lint/ste.js
+var LIMITS = { zh: { procedural: 35, descriptive: 45 }, en: { procedural: 20, descriptive: 25 } };
+var MAX_SENTENCES = 6;
+var ABBR = /\b(e\.g|i\.e|etc|vs|cf|approx|Fig|No)\./gi;
+var PASSIVE = /\b(?:am|is|are|was|were|be|been|being)\s+(?:\w+ly\s+)?(\w+ed|known|done|made|given|taken|seen|written|built|shown|sent|kept|held|found|set|put|run|begun|chosen|driven|broken)\b/i;
+var EN_RE = Object.entries(EN_WORDS).sort((a, b) => b[0].length - a[0].length).map(([word, suggestion]) => ({ re: new RegExp(`\\b${word.replace(/ /g, "\\s+")}\\b`, "gi"), word, suggestion }));
+function splitSentences(text) {
+  const masked = text.replace(ABBR, (m) => m.replace(/\./g, "\0"));
+  const parts = masked.match(/[^。！？；!?;]+?(?:[。！？；!?;]+|\.(?=\s|$)|$)|[^.]+?\.(?=\s|$)/g) ?? [];
+  return parts.map((s) => s.replace(/\u0000/g, ".").trim()).filter(Boolean);
+}
+function sentenceLength(sentence) {
+  const cjk = [...sentence].filter(isCJK).filter((c) => !/[，。！？；：、（）「」『』“”‘’《》]/.test(c)).length;
+  const words = sentence.match(/[A-Za-z0-9][\w'’-]*/g)?.length ?? 0;
+  return cjk >= 4 || cjk > words ? { lang: "zh", count: cjk + words } : { lang: "en", count: words };
+}
+function formatWarning(w) {
+  return `L${w.line} [${w.rule}] ${w.message}${w.suggestion ? ` \u2192 ${w.suggestion}` : ""}`;
+}
+function lintDoc(doc2) {
+  const warnings = [];
+  const blocks = [...doc2.intro, ...doc2.panels.flatMap((p) => p.blocks)];
+  for (const b of blocks) {
+    if (b.type === "md") lintMarkdown(b.text, b.line, warnings);
+    else if (b.lang === "callout") lintMarkdown(b.text, b.line + 1, warnings);
+  }
+  return warnings;
+}
+function clean(text) {
+  return text.replace(/~~[^~]*~~/g, "").replace(/`[^`]*`/g, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/<[^>]+>/g, "").replace(/[*_]{1,3}/g, "");
+}
+function lintMarkdown(text, startLine, out) {
+  let para = null;
+  const flush = () => {
+    if (para && para.count > MAX_SENTENCES) {
+      out.push({ line: para.line, rule: "paragraph-length", message: `\u6BB5\u843D ${para.count} \u53E5\uFF08\u4E0A\u9650 ${MAX_SENTENCES}\uFF09` });
+    }
+    para = null;
+  };
+  let inHtml = false;
+  text.split("\n").forEach((raw, i) => {
+    const line = startLine + i;
+    const t = raw.trim();
+    if (/^<(div|svg|table|details|figure)/i.test(t)) inHtml = true;
+    if (inHtml) {
+      if (/<\/(div|svg|table|details|figure)>\s*$/i.test(t)) inHtml = false;
+      return flush();
+    }
+    if (!t || /^#{1,6}\s/.test(t) || /^[-*_]{3,}$/.test(t)) return flush();
+    if (t.startsWith("|")) {
+      flush();
+      if (/^\|?[\s:|-]+\|?$/.test(t)) return;
+      const cells = t.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      if (cells.some((c) => /^(no|✗|✘)(\s|$)/.test(c))) return;
+      cells.forEach((c) => checkUnit(clean(c.replace(/^(ok|warn|✓|✔|⚠)(\s|$)/, "")), line, "descriptive", out));
+      return;
+    }
+    const list = t.match(/^(?:([-*+])|(\d+)[.)])\s+(.*)$/);
+    if (list) {
+      flush();
+      checkUnit(clean(list[3]), line, list[2] ? "procedural" : "descriptive", out);
+      return;
+    }
+    const body = clean(t.replace(/^>\s*/, ""));
+    const n = checkUnit(body, line, "descriptive", out);
+    if (!para) para = { line, count: 0 };
+    para.count += n;
+  });
+  flush();
+}
+function checkUnit(text, line, kind, out) {
+  const sentences = splitSentences(text);
+  const ja = isJapanese(text);
+  for (const s of sentences) {
+    const { lang, count } = sentenceLength(s);
+    const limit = LIMITS[lang][kind];
+    if (count > limit) {
+      const unit = lang === "zh" ? "\u5B57" : "words";
+      const preview = s.length > 24 ? `${s.slice(0, 24)}\u2026` : s;
+      out.push({ line, rule: "sentence-length", message: `${kind === "procedural" ? "\u6B65\u9AA4" : "\u53E5\u5B50"} ${count} ${unit}\uFF08\u4E0A\u9650 ${limit}\uFF09\uFF1A"${preview}"` });
+    }
+    if (lang === "en" && PASSIVE.test(s)) {
+      out.push({ line, rule: "passive", message: `\u7591\u4F3C\u88AB\u52A8\u8BED\u6001\uFF1A"${s.match(PASSIVE)[0]}"`, suggestion: "\u6539\u4E3A\u4E3B\u52A8\u8BED\u6001" });
+    }
+  }
+  const lexical = [
+    ...EN_RE.flatMap(({ re: re3, suggestion }) => [...text.matchAll(re3)].map((m) => ({ index: m.index, rule: "word", message: `\u4E0D\u63A8\u8350 "${m[0]}"`, suggestion }))),
+    ...(ja ? [] : ZH_LIGHT_VERBS).flatMap(({ re: re3, label }) => [...text.matchAll(re3)].map((m) => ({ index: m.index, rule: "word", message: `\u865A\u52A8\u8BCD "${m[0]}"\uFF08${label}\uFF09`, suggestion: `\u76F4\u63A5\u7528\u300C${m[1]}\u300D` })))
+  ];
+  out.push(...lexical.sort((a, b) => a.index - b.index).map(({ index, ...w }) => ({ line, ...w })));
+  for (const s of sentences) {
+    if (isJapanese(s)) continue;
+    if ((s.match(/的/g) ?? []).length >= 3) out.push({ line, rule: "de-chain", message: `"\u7684"\u5B57\u8FDE\u7528\uFF1A${s}`, suggestion: '\u62C6\u53E5\u6216\u5220\u53BB\u591A\u4F59\u7684"\u7684"' });
+  }
+  for (const c of ja ? [] : ZH_CLICHES) {
+    if (text.includes(c)) out.push({ line, rule: "cliche", message: `\u5957\u8BDD "${c}"`, suggestion: "\u5220\u9664\uFF0C\u6216\u6362\u6210\u5177\u4F53\u4E8B\u5B9E" });
+  }
+  return sentences.length;
+}
+
+// src/render.js
+var RenderError = class extends Error {
+  constructor(message, { line, component, example } = {}) {
+    super(message);
+    this.name = "RenderError";
+    this.line = line;
+    this.component = component;
+    this.example = example;
+  }
+};
+var LintError = class extends Error {
+  constructor(warnings) {
+    super(`STE \u68C0\u67E5\u672A\u901A\u8FC7\uFF08style: strict\uFF09\uFF1A${warnings.length} \u6761`);
+    this.name = "LintError";
+    this.warnings = warnings;
+  }
+};
+var UI = {
+  zh: {
+    theme: { blueprint: "\u4E3B\u9898\uFF1A\u56FE\u7EB8", shadcn: "\u4E3B\u9898\uFF1A\u5361\u7247" },
+    mode: { auto: "\u660E\u6697\uFF1A\u8DDF\u968F\u7CFB\u7EDF", light: "\u660E\u6697\uFF1A\u4EAE", dark: "\u660E\u6697\uFF1A\u6697" },
+    copy: "\u590D\u5236\u6E90\u7A3F",
+    done: "\u5DF2\u590D\u5236 \u2713"
+  },
+  en: {
+    theme: { blueprint: "Theme: Blueprint", shadcn: "Theme: Cards" },
+    mode: { auto: "Mode: Auto", light: "Mode: Light", dark: "Mode: Dark" },
+    copy: "Copy source",
+    done: "Copied \u2713"
+  },
+  ja: {
+    theme: { blueprint: "\u30C6\u30FC\u30DE\uFF1A\u56F3\u9762", shadcn: "\u30C6\u30FC\u30DE\uFF1A\u30AB\u30FC\u30C9" },
+    mode: { auto: "\u8868\u793A\uFF1A\u81EA\u52D5", light: "\u8868\u793A\uFF1A\u30E9\u30A4\u30C8", dark: "\u8868\u793A\uFF1A\u30C0\u30FC\u30AF" },
+    copy: "\u539F\u7A3F\u3092\u30B3\u30D4\u30FC",
+    done: "\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F \u2713"
+  }
+};
+function htmlLang(lang) {
+  return lang === "zh" ? "zh-CN" : lang === "ja" ? "ja" : "en";
+}
+function detectLang(text) {
+  let cjk = 0;
+  let latin = 0;
+  for (const ch of String(text)) {
+    if (isCJK(ch)) cjk++;
+    else if (/[a-z]/i.test(ch)) latin++;
+  }
+  if (cjk * 3 < latin) return "en";
+  return isJapanese(text) ? "ja" : "zh";
+}
+function renderDoc(source, overrides = {}, defaults2 = {}) {
+  const doc2 = parseDoc(source, { defaults: defaults2 });
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === void 0) continue;
+    if (CHOICES[key] && !CHOICES[key].includes(String(value))) {
+      throw new ParseError(`${key} \u7684\u503C "${value}" \u65E0\u6548\uFF0C\u53EF\u9009\uFF1A${CHOICES[key].join(" | ")}`, 0);
+    }
+    doc2.meta[key] = value;
+  }
+  if (doc2.meta.template === "video") throw new ParseError("template: video \u662F\u89C6\u9891\u7A3F\uFF0C\u8BF7\u7528 am video \u6E32\u67D3", 0);
+  const warnings = doc2.meta.style === "off" ? [] : lintDoc(doc2);
+  if (doc2.meta.style === "strict" && warnings.length) throw new LintError(warnings);
+  const stats = { panels: doc2.panels.length, components: {} };
+  const ctx = { seq: 0, stats };
+  const introHtml = renderBlocks(doc2.intro, ctx);
+  const panels = doc2.panels.map((p) => ({ ...p, html: renderBlocks(p.blocks, ctx) }));
+  const lang = doc2.meta.lang || detectLang(source);
+  const body = TEMPLATES[doc2.meta.template]({ meta: doc2.meta, introHtml, panels });
+  const html = shell({ meta: doc2.meta, lang, body, source });
+  return { html, warnings, stats, meta: doc2.meta };
+}
+function renderBlocks(blocks, ctx) {
+  return blocks.map((b) => b.type === "md" ? `<div class="am-md">${md(b.text)}</div>` : renderFence(b, ctx)).join("\n");
+}
+function renderFence(block2, ctx) {
+  const { lang, args, text, line } = block2;
+  if (RAW_LANGS.has(lang)) return text;
+  const comp = COMPONENTS.get(lang);
+  if (!comp) {
+    return `<pre class="am-code"><code${lang ? ` data-lang="${esc(lang)}"` : ""}>${esc(text)}</code></pre>`;
+  }
+  ctx.stats.components[lang] = (ctx.stats.components[lang] ?? 0) + 1;
+  try {
+    return comp.render(text, { args, uid: () => `am${++ctx.seq}` });
+  } catch (err) {
+    if (!(err instanceof ComponentError)) throw err;
+    throw new RenderError(err.message, {
+      line: line + (err.line || 0),
+      component: lang,
+      example: comp.example
+    });
+  }
+}
+function timestamp(d = /* @__PURE__ */ new Date()) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function shell({ meta, lang, body, source }) {
+  const ui = UI[lang] ?? UI.zh;
+  return `<!doctype html>
+<html lang="${htmlLang(lang)}" data-theme="${esc(meta.theme)}" data-mode="${esc(meta.mode)}" data-style="${esc(meta.style)}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="${OUTPUT_BRAND}">
+<title>${esc(meta.title || OUTPUT_BRAND)}</title>
+<style>
+${pageCss()}
+</style>
+</head>
+<body>
+<div class="am-toolbar">
+<button class="am-btn" type="button" data-am="theme" data-labels="${esc(JSON.stringify(ui.theme))}">${esc(ui.theme[meta.theme])}</button>
+<button class="am-btn" type="button" data-am="mode" data-labels="${esc(JSON.stringify(ui.mode))}">${esc(ui.mode[meta.mode])}</button>
+<button class="am-btn" type="button" data-am="copy" data-done="${esc(ui.done)}">${esc(ui.copy)}</button>
+</div>
+${body}
+<footer class="am-colophon">${esc(OUTPUT_BRAND)} \xB7 ${esc(timestamp())}</footer>
+<textarea id="am-source" hidden readonly aria-hidden="true">${esc(source)}</textarea>
+<script>
+${RUNTIME_JS}</script>
+</body>
+</html>
+`;
+}
+
+// src/video/script.js
+var NARRATION = /^\s*>\s?(.*)$/;
+var FOCUS = /\[([^\]\n]+)\]/g;
+var VIDEO_THEMES = Object.freeze([...CHOICES.theme, "3b1b"]);
+function parseVideo(source, { defaults: defaults2 = {} } = {}) {
+  const doc2 = parseDoc(source, { defaults: { ...defaults2, template: "video" }, choices: { theme: VIDEO_THEMES } });
+  const intro = splitNarration(doc2.intro);
+  const scenes = doc2.panels.map((p) => {
+    const { blocks, beats } = splitNarration(p.blocks);
+    if (!beats.length) throw new ParseError(`\u573A\u666F "${p.title}" \u6CA1\u6709\u65C1\u767D\uFF1A\u6BCF\u4E2A\u573A\u666F\u81F3\u5C11\u5199\u4E00\u884C > \u65C1\u767D`, p.line);
+    return { id: p.id, title: p.title, line: p.line, attrs: p.attrs, blocks, beats };
+  });
+  if (!scenes.length) throw new ParseError("\u89C6\u9891\u7A3F\u81F3\u5C11\u9700\u8981\u4E00\u4E2A\u573A\u666F\uFF08## \u573A\u666F\u6807\u9898\uFF09", 1);
+  return { meta: doc2.meta, doc: doc2, intro: intro.blocks, introBeats: intro.beats, scenes };
+}
+function splitNarration(blocks) {
+  const beats = [];
+  const out = [];
+  for (const b of blocks) {
+    if (b.type !== "md") {
+      out.push(b);
+      continue;
+    }
+    const rest = [];
+    b.text.split("\n").forEach((raw, i) => {
+      const m = raw.match(NARRATION);
+      if (m && m[1].trim()) beats.push(beat(m[1].trim(), b.line + i));
+      else if (!m) rest.push(raw);
+    });
+    if (rest.some((l3) => l3.trim())) out.push({ ...b, text: rest.join("\n") });
+  }
+  return { blocks: out, beats };
+}
+function beat(raw, line) {
+  const focus = [...raw.matchAll(FOCUS)].map((m) => m[1].trim());
+  return { raw, text: raw.replace(FOCUS, "$1"), focus: focus[0] ?? null, line };
+}
+function estimateSeconds(text) {
+  let cjk = 0;
+  let latin = "";
+  for (const ch of text) {
+    if (isCJK(ch)) cjk++;
+    latin += isCJK(ch) ? " " : ch;
+  }
+  const words = latin.match(/[A-Za-z0-9][\w'’-]*/g)?.length ?? 0;
+  return Math.max(1.6, cjk / 4.2 + words / 2.6 + 0.3);
+}
+var TIMING = Object.freeze({
+  title: 2.4,
+  // 无旁白时片头停留
+  transition: 0.9,
+  // 场景切换（含跨场景变形）
+  gap: 0.35,
+  // 两句旁白之间的停顿
+  tail: 0.8,
+  // 场景最后一句之后的停留
+  outro: 1.5
+  // 片尾停留
+});
+function buildTimeline(video, durations) {
+  let t = 0;
+  let k2 = 0;
+  const lay = (beats) => beats.map((b) => {
+    const dur = durations[k2++];
+    const start = t;
+    t += dur + TIMING.gap;
+    return { text: b.text, focus: b.focus, start: round2(start), end: round2(start + dur) };
+  });
+  const titleBeats = lay(video.introBeats);
+  if (!titleBeats.length) t = TIMING.title;
+  const title = { start: 0, end: round2(t), beats: titleBeats };
+  const scenes = video.scenes.map((s) => {
+    const start = t;
+    t += TIMING.transition;
+    const beats = lay(s.beats);
+    t += TIMING.tail - TIMING.gap;
+    return { title: s.title, start: round2(start), end: round2(t), beats };
+  });
+  t += TIMING.outro;
+  return { duration: round2(t), title, scenes };
+}
+var allBeats = (video) => [...video.introBeats, ...video.scenes.flatMap((s) => s.beats)];
+var round2 = (x2) => Math.round(x2 * 1e3) / 1e3;
+
+// src/video/tts.js
+import { spawn, spawnSync as spawnSync2 } from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, mkdtempSync, renameSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+// src/sys.js
+import { spawnSync } from "node:child_process";
+function hasCommand(cmd) {
+  return spawnSync(process.platform === "win32" ? "where" : "which", [cmd], { stdio: "ignore" }).status === 0;
+}
+
+// src/video/tts.js
+var SAMPLE_RATE = 22050;
+var VOICES = ["auto", "elevenlabs", "system", "off"];
+var ELEVEN_DEFAULT_VOICE = "JBFqnCBsd6RMkjVDRZzb";
+var ELEVEN_MODEL = "eleven_multilingual_v2";
+var ELEVEN_TIMEOUT_MS = 6e4;
+var TtsError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "TtsError";
+  }
+};
+function pickProvider(choice, env, { platform = process.platform, which = hasCommand } = {}) {
+  const eleven = () => elevenLabs(env);
+  const system = () => systemVoice(platform, which);
+  if (choice === "off") return null;
+  if (choice === "elevenlabs") {
+    if (!env.ELEVENLABS_API_KEY) throw new TtsError("voice=elevenlabs \u9700\u8981\u73AF\u5883\u53D8\u91CF ELEVENLABS_API_KEY");
+    return eleven();
+  }
+  if (choice === "system") {
+    const p = system();
+    if (!p) throw new TtsError("\u6CA1\u6709\u627E\u5230\u7CFB\u7EDF TTS\uFF1AmacOS \u81EA\u5E26 say\uFF1BLinux \u8BF7\u5B89\u88C5 espeak-ng");
+    return p;
+  }
+  if (env.ELEVENLABS_API_KEY) return eleven();
+  return system();
+}
+function elevenLabs(env) {
+  const voice = env.ELEVENLABS_VOICE_ID || ELEVEN_DEFAULT_VOICE;
+  return {
+    name: "elevenlabs",
+    id: `elevenlabs:${voice}:${ELEVEN_MODEL}`,
+    concurrency: 2,
+    async synth(text) {
+      const url = `https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=pcm_${SAMPLE_RATE}`;
+      let res;
+      try {
+        res = await fetch(url, {
+          method: "POST",
+          headers: { "xi-api-key": env.ELEVENLABS_API_KEY, "content-type": "application/json" },
+          body: JSON.stringify({ text, model_id: ELEVEN_MODEL }),
+          signal: AbortSignal.timeout(ELEVEN_TIMEOUT_MS)
+        });
+      } catch (e) {
+        throw new TtsError(`\u65E0\u6CD5\u8FDE\u63A5 ElevenLabs\uFF1A${e.name === "TimeoutError" ? `${ELEVEN_TIMEOUT_MS / 1e3} \u79D2\u5185\u6CA1\u6709\u54CD\u5E94` : e.message}`);
+      }
+      if (!res.ok) throw new TtsError(`ElevenLabs \u8FD4\u56DE ${res.status}\uFF1A${(await res.text()).slice(0, 200)}`);
+      const buf = Buffer.from(await res.arrayBuffer());
+      return new Int16Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 2)).slice();
+    }
+  };
+}
+function systemVoice(platform, which) {
+  if (platform === "darwin" && which("say")) {
+    const voices = macVoices();
+    return {
+      name: "say",
+      id: `say:${voices.zh}:${voices.en}:${voices.ja}`,
+      concurrency: 4,
+      synth: (text) => withTemp(async (file) => {
+        const v = voices[detectLang(text)];
+        await run("say", [...v ? ["-v", v] : [], "-o", file, "--file-format=WAVE", `--data-format=LEI16@${SAMPLE_RATE}`, "-f", textFile(file, text)]);
+        return readWav(readFileSync(file));
+      })
+    };
+  }
+  if (which("espeak-ng")) {
+    return {
+      name: "espeak-ng",
+      id: "espeak-ng",
+      concurrency: 4,
+      synth: (text) => withTemp(async (file) => {
+        await run("espeak-ng", ["-v", { zh: "cmn", ja: "ja" }[detectLang(text)] ?? "en-us", "-w", file, "-f", textFile(file, text)]);
+        return readWav(readFileSync(file));
+      })
+    };
+  }
+  return null;
+}
+function macVoices() {
+  return pickMacVoices(spawnSync2("say", ["-v", "?"], { encoding: "utf8" }).stdout || "");
+}
+function pickMacVoices(out) {
+  const list = out.split("\n").map((l3) => l3.match(/^(.+?)\s+([a-z]{2}_[A-Z]{2})\s+#/)).filter(Boolean).map((m) => ({ name: m[1].trim(), locale: m[2] }));
+  const base = (name) => name.replace(/\s*[(（].*$/, "");
+  const pick = (prefer, locale) => prefer.map((p) => list.find((v) => v.locale === locale && base(v.name) === p)).find(Boolean)?.name;
+  return {
+    zh: pick(["Tingting", "Ting-Ting", "Lilian", "Reed", "Flo", "Eddy"], "zh_CN"),
+    en: pick(["Samantha", "Alex", "Ava", "Allison", "Reed", "Flo", "Eddy"], "en_US"),
+    ja: pick(["Kyoko", "Otoya", "Eddy", "Flo"], "ja_JP")
+  };
+}
+function run(cmd, args) {
+  return new Promise((resolve2, reject) => {
+    const p = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"] });
+    let err = "";
+    p.stderr.on("data", (d) => {
+      err += d;
+    });
+    p.on("error", reject);
+    p.on("close", (code) => code === 0 ? resolve2() : reject(new TtsError(`${cmd} \u5931\u8D25\uFF08${code}\uFF09\uFF1A${err.slice(0, 200)}`)));
+  });
+}
+function textFile(wavFile, text) {
+  const p = `${wavFile}.txt`;
+  writeFileSync(p, text);
+  return p;
+}
+async function withTemp(fn3) {
+  const dir = mkdtempSync(join(tmpdir(), "am-tts-"));
+  try {
+    return await fn3(join(dir, "out.wav"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+function readWav(buf) {
+  if (buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WAVE") throw new TtsError("\u4E0D\u662F WAV \u6587\u4EF6");
+  let pos = 12;
+  let fmt = null;
+  while (pos + 8 <= buf.length) {
+    const id = buf.toString("ascii", pos, pos + 4);
+    const size = buf.readUInt32LE(pos + 4);
+    if (id === "fmt ") fmt = { channels: buf.readUInt16LE(pos + 10), rate: buf.readUInt32LE(pos + 12), bits: buf.readUInt16LE(pos + 22) };
+    if (id === "data") {
+      if (!fmt || fmt.bits !== 16) throw new TtsError("\u53EA\u652F\u6301 16 \u4F4D PCM WAV");
+      const n = Math.floor(Math.min(size, buf.length - pos - 8) / 2 / fmt.channels);
+      const samples = new Int16Array(n);
+      for (let i = 0; i < n; i++) samples[i] = buf.readInt16LE(pos + 8 + i * 2 * fmt.channels);
+      return fmt.rate === SAMPLE_RATE ? samples : resample({ rate: fmt.rate, samples });
+    }
+    pos += 8 + size + size % 2;
+  }
+  throw new TtsError("WAV \u7F3A\u5C11 data \u5757");
+}
+function resample(input) {
+  if (input instanceof Int16Array) return input;
+  const { rate, samples } = input;
+  const n = Math.floor(samples.length * SAMPLE_RATE / rate);
+  const out = new Int16Array(n);
+  for (let i = 0; i < n; i++) {
+    const x2 = i * rate / SAMPLE_RATE;
+    const a = Math.floor(x2);
+    const b = Math.min(a + 1, samples.length - 1);
+    out[i] = Math.round(samples[a] + (samples[b] - samples[a]) * (x2 - a));
+  }
+  return out;
+}
+async function synthAll(texts, provider, { cacheDir } = {}) {
+  if (cacheDir) mkdirSync(cacheDir, { recursive: true });
+  const results = new Array(texts.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < texts.length) {
+      const i = next++;
+      const file = cacheDir && join(cacheDir, `${createHash("sha1").update(`${provider.id}
+${texts[i]}`).digest("hex")}.pcm`);
+      const cached = file && readCache(file);
+      if (cached) {
+        results[i] = cached;
+        continue;
+      }
+      results[i] = trimSilence(await provider.synth(texts[i]));
+      if (file) writeCache(file, results[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(provider.concurrency ?? 2, texts.length) }, worker));
+  return results;
+}
+function readCache(file) {
+  if (!existsSync(file)) return null;
+  const buf = readFileSync(file);
+  if (!buf.length || buf.length % 2) return null;
+  return new Int16Array(buf.buffer, buf.byteOffset, buf.length / 2).slice();
+}
+function writeCache(file, samples) {
+  const tmp = `${file}.${process.pid}.tmp`;
+  writeFileSync(tmp, Buffer.from(samples.buffer, samples.byteOffset, samples.byteLength));
+  renameSync(tmp, file);
+}
+function trimSilence(samples, threshold = 300) {
+  let a = 0;
+  let b = samples.length;
+  while (a < b && Math.abs(samples[a]) < threshold) a++;
+  while (b > a && Math.abs(samples[b - 1]) < threshold) b--;
+  const pad = Math.floor(SAMPLE_RATE * 0.04);
+  return samples.slice(Math.max(0, a - pad), Math.min(samples.length, b + pad));
+}
+function mixTrack(clips, starts, duration) {
+  const total = Math.ceil(duration * SAMPLE_RATE);
+  const track = new Int16Array(total);
+  clips.forEach((clip, i) => {
+    const s0 = Math.round(starts[i] * SAMPLE_RATE);
+    for (let j2 = 0; j2 < clip.length && s0 + j2 < total; j2++) track[s0 + j2] = clip[j2];
+  });
+  return wav(track);
+}
+function wav(samples) {
+  const buf = Buffer.alloc(44 + samples.length * 2);
+  buf.write("RIFF", 0);
+  buf.writeUInt32LE(36 + samples.length * 2, 4);
+  buf.write("WAVE", 8);
+  buf.write("fmt ", 12);
+  buf.writeUInt32LE(16, 16);
+  buf.writeUInt16LE(1, 20);
+  buf.writeUInt16LE(1, 22);
+  buf.writeUInt32LE(SAMPLE_RATE, 24);
+  buf.writeUInt32LE(SAMPLE_RATE * 2, 28);
+  buf.writeUInt16LE(2, 32);
+  buf.writeUInt16LE(16, 34);
+  buf.write("data", 36);
+  buf.writeUInt32LE(samples.length * 2, 40);
+  Buffer.from(samples.buffer, samples.byteOffset, samples.byteLength).copy(buf, 44);
+  return buf;
+}
+
+// src/video/render.js
+var UI2 = {
+  zh: { play: "\u64AD\u653E", pause: "\u6682\u505C", chapters: "\u7AE0\u8282" },
+  en: { play: "Play", pause: "Pause", chapters: "Chapters" },
+  ja: { play: "\u518D\u751F", pause: "\u4E00\u6642\u505C\u6B62", chapters: "\u7AE0" }
+};
+async function renderVideo(source, { provider = null, cacheDir, defaults: defaults2 = {}, overrides = {}, onProgress } = {}) {
+  const video = parseVideo(source, { defaults: defaults2 });
+  const meta = applyOverrides(video.meta, overrides);
+  const warnings = meta.style === "off" ? [] : lintDoc(video.doc).filter((w) => w.rule !== "paragraph-length");
+  if (meta.style === "strict" && warnings.length) throw new LintError(warnings);
+  const beats = allBeats(video);
+  const { clips, durations } = await voiceBeats(beats, provider, cacheDir, onProgress);
+  const timeline = buildTimeline(video, durations);
+  const flat = [...timeline.title.beats, ...timeline.scenes.flatMap((s) => s.beats)];
+  const wav2 = clips ? mixTrack(clips, flat.map((b) => b.start), timeline.duration) : null;
+  const stats = { panels: video.scenes.length, components: {} };
+  const scenesHtml = renderScenes(video, meta, timeline, { seq: 0, stats });
+  const lang = meta.lang || detectLang(source);
+  const html = shell2({ meta, lang, scenesHtml, data: playerData(video, meta, timeline), wav: wav2, source });
+  return { html, wav: wav2, warnings, stats, meta, duration: timeline.duration, beats: beats.length };
+}
+function applyOverrides(meta, overrides) {
+  const allowed = { ...CHOICES, theme: VIDEO_THEMES };
+  const set = Object.entries(overrides).filter(([, v]) => v !== void 0);
+  for (const [key, value] of set) {
+    if (allowed[key] && !allowed[key].includes(String(value))) {
+      throw new ParseError(`${key} \u7684\u503C "${value}" \u65E0\u6548\uFF0C\u53EF\u9009\uFF1A${allowed[key].join(" | ")}`, 0);
+    }
+  }
+  return { ...meta, ...Object.fromEntries(set) };
+}
+async function voiceBeats(beats, provider, cacheDir, onProgress) {
+  if (!provider) return { clips: null, durations: beats.map((b) => estimateSeconds(b.text)) };
+  onProgress?.(`\u914D\u97F3\uFF1A${provider.name}\uFF0C${beats.length} \u53E5`);
+  const clips = await synthAll(beats.map((b) => b.text), provider, { cacheDir });
+  return { clips, durations: clips.map((c) => c.length / SAMPLE_RATE) };
+}
+function playerData(video, meta, timeline) {
+  return {
+    duration: timeline.duration,
+    fps: 30,
+    segments: [timeline.title, ...timeline.scenes].map((s, i) => ({
+      start: s.start,
+      end: s.end,
+      title: i === 0 ? meta.title : s.title,
+      beats: s.beats.map((b, k2) => ({ ...b, html: captionHtml(beatsOf(video, i)[k2].raw) }))
+    }))
+  };
+}
+function renderScenes(video, meta, timeline, ctx) {
+  const total = video.scenes.length;
+  return [
+    titleScene(meta, renderBlocks(video.intro, ctx), { scenes: total, duration: timeline.duration }),
+    ...video.scenes.map((s, i) => scene(s, i, total, renderBlocks(s.blocks, ctx)))
+  ].join("\n");
+}
+var beatsOf = (video, i) => i === 0 ? video.introBeats : video.scenes[i - 1].beats;
+function captionHtml(raw) {
+  return raw.split(/(\[[^\]\n]+\])/).map((part) => {
+    const m = part.match(/^\[([^\]]+)\]$/);
+    return m ? `<b>${esc(m[1])}</b>` : esc(part);
+  }).join("");
+}
+function formatClock(seconds) {
+  const total = Math.max(0, Math.round(Number(seconds) || 0));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+function titleScene(meta, introHtml, { scenes, duration }) {
+  const mmss = formatClock(duration);
+  const cells = [["DRAWN", OUTPUT_BRAND], ["DATE", timestamp().slice(0, 10)], ["SCENES", String(scenes)], ["DURATION", mmss]];
+  const block2 = `<div class="amv-titleblock">${cells.map(([k2, v]) => `<div><b>${k2}</b><span>${esc(v)}</span></div>`).join("")}</div>`;
+  return `<section class="amv-scene amv-scene--title" data-i="0">
+<div class="amv-title-wrap"><h1 class="amv-title">${esc(meta.title || OUTPUT_BRAND)}</h1>${meta.subtitle ? `<p class="amv-subtitle">${esc(meta.subtitle)}</p>` : ""}${introHtml ? `<div class="amv-intro">${introHtml}</div>` : ""}${block2}</div>
+</section>`;
+}
+function scene(s, i, total, body) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `<section class="amv-scene" data-i="${i + 1}">
+<header class="amv-scene-head"><span class="amv-scene-n">${esc(s.id)}</span><span class="amv-scene-title">${esc(s.title)}</span><span class="amv-scene-meta">SHEET ${pad(i + 1)} / ${pad(total)}</span></header>
+<div class="amv-body"><div class="amv-fit">${body}</div></div>
+</section>`;
+}
+function sheetFrame() {
+  const ruler2 = (side, labels) => `<div class="amv-ruler amv-ruler--${side}">${labels.map((l3) => `<span>${l3}</span>`).join("")}</div>`;
+  const nums = [1, 2, 3, 4, 5, 6, 7, 8];
+  const letters = ["A", "B", "C", "D"];
+  return `<div class="amv-sheet" aria-hidden="true">${ruler2("top", nums)}${ruler2("bottom", nums)}${ruler2("left", letters)}${ruler2("right", letters)}</div>`;
+}
+function shell2({ meta, lang, scenesHtml, data, wav: wav2, source }) {
+  const ui = UI2[lang] ?? UI2.zh;
+  const json = JSON.stringify(data).replace(/</g, "\\u003c");
+  return `<!doctype html>
+<html lang="${htmlLang(lang)}" data-theme="${esc(meta.theme)}" data-mode="${meta.theme === "3b1b" || meta.mode === "dark" ? "dark" : "light"}" data-style="${esc(meta.style)}" data-video>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="${OUTPUT_BRAND}">
+<title>${esc(meta.title || OUTPUT_BRAND)}</title>
+<style>
+${pageCss()}
+${VIDEO_CSS}
+</style>
+</head>
+<body>
+<div class="amv-viewport">
+<div class="amv-stage">
+${sheetFrame()}
+<div class="amv-camera">
+${scenesHtml}
+<div class="amv-overlay"></div>
+</div>
+<div class="amv-caption"><span></span></div>
+<button class="amv-bigplay" type="button" aria-label="${esc(ui.play)}">\u25B6</button>
+</div>
+</div>
+<div class="amv-controls">
+<button class="amv-btn" type="button" data-amv="toggle" data-play="${esc(ui.play)}" data-pause="${esc(ui.pause)}" aria-label="${esc(ui.play)}">\u25B6</button>
+<span class="amv-time">0:00 / 0:00</span>
+<div class="amv-track"><input class="amv-seek" type="range" min="0" step="0.01" value="0" aria-label="seek"><div class="amv-marks"></div></div>
+<span class="amv-brand">${esc(OUTPUT_BRAND)} \xB7 ${esc(timestamp())}</span>
+</div>
+<script type="application/json" id="amv-data">${json}</script>
+${wav2 ? `<audio id="amv-audio" preload="auto" src="data:audio/wav;base64,${wav2.toString("base64")}"></audio>` : ""}
+<textarea id="am-source" hidden readonly aria-hidden="true">${esc(source)}</textarea>
+<script>
+${VIDEO_JS}</script>
+</body>
+</html>
+`;
+}
+
+// src/video/export.js
+import { spawn as spawn2 } from "node:child_process";
+import { existsSync as existsSync2, mkdtempSync as mkdtempSync2, rmSync as rmSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { tmpdir as tmpdir2, availableParallelism } from "node:os";
+import { join as join2 } from "node:path";
+import { pathToFileURL } from "node:url";
+var ExportError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ExportError";
+  }
+};
+var CDP_TIMEOUT_MS = 3e4;
+var CHROME_PATHS = {
+  darwin: [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+  ],
+  win32: [
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+  ],
+  linux: ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge"]
+};
+function findChrome(env = process.env, platform = process.platform) {
+  const custom = env.AM_CHROME || env.CHROME_PATH;
+  if (custom) return custom;
+  const list = CHROME_PATHS[platform] ?? CHROME_PATHS.linux;
+  return list.find((p) => p.includes("/") || p.includes("\\") ? existsSync2(p) : hasCommand(p)) ?? null;
+}
+// ── paper-explainer-video patch: parallel MP4 export ───────────────────────────────────────
+// The stock exporter drives one headless Chrome and one ffmpeg, one frame at a time, which
+// leaves most CPU cores idle. The player's render(t) is a pure function of t (it supports
+// seeking), so frame ranges are independent: each worker gets its own Chrome and its own
+// video-only x264 segment, and the segments are joined with a stream-copy concat while the
+// narration is muxed in. Same frames, same timing; only wall-clock changes.
+//   AM_EXPORT_WORKERS  parallel Chrome+ffmpeg workers (default: cores / 2, 1..12)
+//   AM_EXPORT_FPS      frame rate override (default: the player's fps)
+//   AM_EXPORT_PRESET   x264 preset per segment (default: veryfast)
+//   AM_EXPORT_ENCODER  libx264 (default) | h264_nvenc (NVIDIA GPU encoder; render.sh auto-detects)
+//   AM_CHROME_FLAGS    extra Chrome flags, space-separated (render.sh adds GPU raster flags on CUDA)
+async function openPlayer(chromePath, htmlFile, dir) {
+  const chrome = spawn2(chromePath, [
+    "--headless=new",
+    "--remote-debugging-port=0",
+    `--user-data-dir=${join2(dir, "profile")}`,
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--hide-scrollbars",
+    "--mute-audio",
+    "--force-device-scale-factor=1",
+    "--window-size=1920,1080",
+    ...(process.env.AM_CHROME_FLAGS || "").split(/\s+/).filter(Boolean),
+    "about:blank"
+  ], { stdio: ["ignore", "ignore", "pipe"] });
+  let cdp = null;
+  const close = async () => {
+    cdp?.close();
+    await new Promise((r) => {
+      if (chrome.exitCode !== null) return r();
+      const timer = setTimeout(r, 3e3);
+      chrome.once("exit", () => {
+        clearTimeout(timer);
+        r();
+      });
+      chrome.kill();
+    });
+  };
+  try {
+    cdp = await connect(await devtoolsUrl(chrome));
+    const { targetId } = await cdp.send("Target.createTarget", { url: "about:blank" });
+    const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
+    const page = (method, params) => cdp.send(method, params, sessionId);
+    await page("Emulation.setDeviceMetricsOverride", { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+    await page("Page.enable");
+    const loaded = cdp.once("Page.loadEventFired");
+    await page("Page.navigate", { url: pathToFileURL(htmlFile).href });
+    await loaded;
+    const evaluate = async (expression) => {
+      const r = await page("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
+      if (r.exceptionDetails) throw new ExportError(`\u64AD\u653E\u9875\u811A\u672C\u51FA\u9519\uFF1A${r.exceptionDetails.exception?.description ?? r.exceptionDetails.text}`);
+      return r.result.value;
+    };
+    const info = await evaluate("document.fonts.ready.then(() => { window.__amv.exportMode(); return { duration: window.__amv.duration, fps: window.__amv.fps }; })");
+    return { page, evaluate, info, close };
+  } catch (e) {
+    await close();
+    throw e;
+  }
+}
+function runFfmpeg(args, stdinUsed) {
+  const ffmpeg = spawn2("ffmpeg", args, { stdio: [stdinUsed ? "pipe" : "ignore", "ignore", "pipe"] });
+  let ffErr = "";
+  const state = { exited: false };
+  ffmpeg.stderr.on("data", (d) => {
+    ffErr += d;
+  });
+  ffmpeg.stdin?.on("error", () => {
+  });
+  const done = new Promise((resolve2, reject) => {
+    ffmpeg.on("error", (e) => {
+      state.exited = true;
+      reject(new ExportError(`\u65E0\u6CD5\u8FD0\u884C ffmpeg\uFF1A${e.message}`));
+    });
+    ffmpeg.on("close", (code) => {
+      state.exited = true;
+      if (code === 0) resolve2();
+      else reject(new ExportError(`ffmpeg \u5931\u8D25\uFF08${code}\uFF09\uFF1A${ffErr.slice(0, 300)}`));
+    });
+  });
+  done.catch(() => {
+  });
+  return { ffmpeg, done, state };
+}
+function encoderArgs(preset) {
+  // NVENC: constant-quality VBR, close to x264 crf 20 at 1080p; frees the CPU for Chrome.
+  if (process.env.AM_EXPORT_ENCODER === "h264_nvenc") {
+    return ["-c:v", "h264_nvenc", "-preset", "p5", "-tune", "hq", "-rc", "vbr", "-cq", "21", "-b:v", "0", "-pix_fmt", "yuv420p"];
+  }
+  return ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", "-preset", preset];
+}
+async function renderRange(player, first, last, fps, segFile, preset, onFrame) {
+  const { ffmpeg, done, state } = runFfmpeg([
+    "-y", "-loglevel", "error",
+    "-f", "image2pipe", "-framerate", String(fps), "-c:v", "mjpeg", "-i", "-",
+    ...encoderArgs(preset),
+    segFile
+  ], true);
+  for (let i = first; i < last && !state.exited; i++) {
+    await player.evaluate(`render(${i / fps})`);
+    const { data } = await player.page("Page.captureScreenshot", { format: "jpeg", quality: 92, clip: { x: 0, y: 0, width: 1920, height: 1080, scale: 1 } });
+    if (state.exited) break;
+    if (!ffmpeg.stdin.write(Buffer.from(data, "base64"))) {
+      await Promise.race([new Promise((r) => ffmpeg.stdin.once("drain", r)), done.catch(() => {
+      })]);
+    }
+    onFrame();
+  }
+  if (!state.exited) ffmpeg.stdin.end();
+  await done;
+}
+async function exportMp4(htmlFile, mp4File, { wav: wav2, env = process.env, onProgress = () => {
+} } = {}) {
+  if (typeof WebSocket === "undefined") throw new ExportError("\u5BFC\u51FA MP4 \u9700\u8981 Node.js 22 \u6216\u66F4\u9AD8\u7248\u672C\uFF08\u5185\u7F6E WebSocket\uFF09");
+  if (!hasCommand("ffmpeg")) throw new ExportError("\u5BFC\u51FA MP4 \u9700\u8981 ffmpeg\uFF1AmacOS \u7528 brew install ffmpeg\uFF0CLinux \u7528\u5305\u7BA1\u7406\u5668\u5B89\u88C5");
+  const chromePath = findChrome(env);
+  if (!chromePath) throw new ExportError("\u6CA1\u6709\u627E\u5230 Chrome / Chromium / Edge\u3002\u53EF\u7528\u73AF\u5883\u53D8\u91CF AM_CHROME \u6307\u5B9A\u6D4F\u89C8\u5668\u8DEF\u5F84");
+  const tmp = mkdtempSync2(join2(tmpdir2(), "am-export-"));
+  const players = [];
+  try {
+    players.push(await openPlayer(chromePath, htmlFile, join2(tmp, "w0")));
+    const { info } = players[0];
+    const fps = Number(env.AM_EXPORT_FPS) > 0 ? Number(env.AM_EXPORT_FPS) : info.fps;
+    const frames = Math.ceil(info.duration * fps);
+    const defaultWorkers = Math.floor(availableParallelism() / 2);
+    const requested = Number(env.AM_EXPORT_WORKERS) || defaultWorkers;
+    // Short videos don't amortize a Chrome start-up; keep at least ~10 s of frames per worker.
+    const workers = Math.max(1, Math.min(12, requested, Math.ceil(frames / (fps * 10))));
+    const preset = env.AM_EXPORT_PRESET || "veryfast";
+    players.push(...await Promise.all(Array.from({ length: workers - 1 }, (_2, k) => openPlayer(chromePath, htmlFile, join2(tmp, `w${k + 1}`)))));
+    const per = Math.ceil(frames / workers);
+    const segments = players.map((_2, k) => join2(tmp, `seg-${k}.mp4`));
+    let doneFrames = 0;
+    const onFrame = () => {
+      doneFrames++;
+      if (doneFrames % 30 === 0 || doneFrames === frames) onProgress(doneFrames, frames);
+    };
+    await Promise.all(players.map((p, k) => renderRange(p, k * per, Math.min(frames, (k + 1) * per), fps, segments[k], preset, onFrame)));
+    const list = join2(tmp, "segments.txt");
+    writeFileSync2(list, segments.map((s) => `file '${s.replace(/'/g, "'\\''")}'`).join("\n") + "\n");
+    const wavFile = wav2 ? join2(tmp, "voice.wav") : null;
+    if (wav2) writeFileSync2(wavFile, wav2);
+    const mux = runFfmpeg([
+      "-y", "-loglevel", "error",
+      "-f", "concat", "-safe", "0", "-i", list,
+      ...wavFile ? ["-i", wavFile] : [],
+      "-c:v", "copy",
+      // -t, not -shortest: -shortest drops the last few buffered video frames when muxing.
+      ...wavFile ? ["-c:a", "aac", "-b:a", "160k", "-t", String(frames / fps)] : [],
+      "-movflags", "+faststart",
+      mp4File
+    ], false);
+    await mux.done;
+    return { frames, duration: info.duration, workers };
+  } finally {
+    await Promise.all(players.map((p) => p.close()));
+    try {
+      if (env.AM_EXPORT_KEEP) throw new Error(`kept ${tmp}`);  // debugging: keep segments
+      rmSync2(tmp, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
+    } catch {
+    }
+  }
+}
+// ── end of paper-explainer-video patch ─────────────────────────────────────────────────────
+function devtoolsUrl(chrome) {
+  return new Promise((resolve2, reject) => {
+    let buf = "";
+    const timer = setTimeout(() => reject(new ExportError("Chrome \u542F\u52A8\u8D85\u65F6")), 2e4);
+    chrome.on("error", (e) => {
+      clearTimeout(timer);
+      reject(new ExportError(`\u65E0\u6CD5\u542F\u52A8 Chrome\uFF1A${e.message}`));
+    });
+    chrome.stderr.on("data", (d) => {
+      buf += d;
+      const m = buf.match(/DevTools listening on (ws:\/\/\S+)/);
+      if (m) {
+        clearTimeout(timer);
+        resolve2(m[1]);
+      }
+    });
+  });
+}
+function connect(url) {
+  return new Promise((resolve2, reject) => {
+    const ws = new WebSocket(url);
+    const pending = /* @__PURE__ */ new Map();
+    const waiters = /* @__PURE__ */ new Map();
+    let id = 0;
+    ws.addEventListener("error", () => reject(new ExportError("\u65E0\u6CD5\u8FDE\u63A5 Chrome DevTools")));
+    ws.addEventListener("message", (ev) => {
+      const msg = JSON.parse(ev.data);
+      if (msg.id && pending.has(msg.id)) {
+        const { ok, fail } = pending.get(msg.id);
+        pending.delete(msg.id);
+        if (msg.error) fail(new ExportError(`CDP ${msg.error.message}`));
+        else ok(msg.result);
+      } else if (msg.method && waiters.has(msg.method)) {
+        waiters.get(msg.method)(msg.params);
+        waiters.delete(msg.method);
+      }
+    });
+    ws.addEventListener("open", () => resolve2({
+      send(method, params = {}, sessionId) {
+        return new Promise((ok, fail) => {
+          const msgId = ++id;
+          const timer = setTimeout(() => {
+            pending.delete(msgId);
+            fail(new ExportError(`Chrome \u65E0\u54CD\u5E94\uFF08${method} \u8D85\u8FC7 ${CDP_TIMEOUT_MS / 1e3} \u79D2\uFF09`));
+          }, CDP_TIMEOUT_MS);
+          pending.set(msgId, { ok: (v) => {
+            clearTimeout(timer);
+            ok(v);
+          }, fail: (e) => {
+            clearTimeout(timer);
+            fail(e);
+          } });
+          ws.send(JSON.stringify({ id: msgId, method, params, ...sessionId ? { sessionId } : {} }));
+        });
+      },
+      once: (method) => new Promise((r) => waiters.set(method, r)),
+      close: () => ws.close()
+    }));
+  });
+}
+
+// src/housekeeping.js
+import { readdirSync, lstatSync, rmSync as rmSync3, existsSync as existsSync3 } from "node:fs";
+import { join as join4 } from "node:path";
+
+// src/state.js
+import { readFileSync as readFileSync2, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2, renameSync as renameSync2 } from "node:fs";
+import { join as join3 } from "node:path";
+var DAY = 24 * 60 * 60 * 1e3;
+var statePath = (home) => join3(home, "state.json");
+function readState(home) {
+  try {
+    const data = JSON.parse(readFileSync2(statePath(home), "utf8"));
+    return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+  } catch {
+    return {};
+  }
+}
+function writeState(home, patch) {
+  const next = { ...readState(home), ...patch };
+  mkdirSync2(home, { recursive: true });
+  const tmp = `${statePath(home)}.${process.pid}.tmp`;
+  writeFileSync3(tmp, `${JSON.stringify(next, null, 2)}
+`);
+  renameSync2(tmp, statePath(home));
+  return next;
+}
+
+// src/update.js
+import { spawn as spawn3 } from "node:child_process";
+var UPDATE = Object.freeze({
+  checkEveryDays: 7,
+  hintEveryDays: 3,
+  timeoutMs: 5e3,
+  url: ""
+});
+var SEMVER = /^v?(\d+)\.(\d+)\.(\d+)$/;
+function parseVersion(v) {
+  const m = String(v).trim().match(SEMVER);
+  return m ? m.slice(1, 4).map(Number) : null;
+}
+function newer(a, b) {
+  const pa = parseVersion(a);
+  const pb = parseVersion(b);
+  if (!pa || !pb) return false;
+  const i = pa.findIndex((n, k2) => n !== pb[k2]);
+  return i !== -1 && pa[i] > pb[i];
+}
+function updateCommand(scriptPath = "") {
+  if (/[\\/]\.claude[\\/]plugins[\\/]/.test(scriptPath)) {
+    return "\u7EC8\u7AEF\u8FD0\u884C re-copy the vendored file\uFF08\u6216\u5728 /plugin \u7684 Installed \u9875\u70B9 Update now\uFF09\uFF0C\u518D /reload-plugins";
+  }
+  if (/[\\/]bin[\\/]am\.js$/.test(scriptPath)) {
+    return "\u5728\u4ED3\u5E93\u76EE\u5F55\u8FD0\u884C git pull && npm install";
+  }
+  return "\u8FD0\u884C re-copy the vendored file";
+}
+var updateEnabled = () => false;  // papergit2video patch: pinned copy, no update checks
+function updateHint(state, current, scriptPath, now = Date.now()) {
+  if (!newer(state.latestVersion, current)) return null;
+  if (state.lastUpdateHint && now - state.lastUpdateHint < UPDATE.hintEveryDays * DAY) return null;
+  return `! \u66F4\u65B0\u63D0\u793A\uFF1Aam \u6709\u65B0\u7248\u672C ${state.latestVersion}\uFF08\u5F53\u524D ${current}\uFF09\u3002\u8BF7\u95EE\u7528\u6237\u662F\u5426\u66F4\u65B0\uFF1A${updateCommand(scriptPath)}\u3002`;
+}
+function shouldCheckUpdate(state, env, config, now = Date.now()) {
+  if (!updateEnabled(env, config)) return false;
+  return !state.lastUpdateCheck || now - state.lastUpdateCheck >= UPDATE.checkEveryDays * DAY;
+}
+function spawnUpdateCheck(home, scriptPath) {
+  writeState(home, { lastUpdateCheck: Date.now() });
+  try {
+    spawn3(process.execPath, [scriptPath, "__update-check"], { detached: true, stdio: "ignore", env: { ...process.env, AM_HOME: home } }).on("error", () => {
+    }).unref();
+  } catch {
+  }
+}
+async function runUpdateCheck(home, fetchImpl = fetch) {
+  try {
+    const res = await fetchImpl(UPDATE.url, { signal: AbortSignal.timeout(UPDATE.timeoutMs) });
+    if (!res.ok) return null;
+    const { version } = await res.json();
+    if (!parseVersion(version)) return null;
+    writeState(home, { latestVersion: version.trim(), lastUpdateCheck: Date.now() });
+    return version.trim();
+  } catch {
+    return null;
+  }
+}
+
+// src/housekeeping.js
+var CLEAN = Object.freeze({
+  days: 30,
+  // am clean 默认删除 30 天前的页面和视频
+  bigBytes: 200 * 2 ** 20,
+  // 超过 200 MB 立即提示
+  staleDays: 30,
+  // 距上次清理超过 30 天……
+  staleBytes: 20 * 2 ** 20,
+  // ……且超过 20 MB 时提示
+  hintEveryDays: 7
+  // 同一提示最多每 7 天出现一次
+});
+var DIRS2 = ["pages", "videos", "cache"];
+function walk(dir) {
+  if (!existsSync3(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = join4(dir, e.name);
+    if (e.isDirectory()) return walk(p);
+    try {
+      const s = lstatSync(p);
+      return s.isFile() ? [{ path: p, bytes: s.size, mtime: s.mtimeMs }] : [];
+    } catch {
+      return [];
+    }
+  });
+}
+var sum = (files) => files.reduce((n, f2) => n + f2.bytes, 0);
+function usage(home) {
+  const parts = Object.fromEntries(DIRS2.map((d) => {
+    const files = walk(join4(home, d));
+    return [d, { count: files.length, bytes: sum(files) }];
+  }));
+  return { ...parts, total: DIRS2.reduce((n, d) => n + parts[d].bytes, 0) };
+}
+function clean2(home, { days = CLEAN.days, all = false, dryRun = false, now = Date.now() } = {}) {
+  const cutoff = now - days * DAY;
+  const victims = [
+    ...["pages", "videos"].flatMap((d) => walk(join4(home, d)).filter((f2) => all || f2.mtime < cutoff)),
+    ...walk(join4(home, "cache"))
+  ];
+  if (!dryRun) {
+    for (const f2 of victims) rmSync3(f2.path, { force: true });
+    writeState(home, { lastClean: now, lastCleanHint: null });
+  }
+  return { files: victims.length, bytes: sum(victims) };
+}
+var mb = (bytes) => bytes < 2 ** 20 ? `${Math.ceil(bytes / 1024)} KB` : `${(bytes / 2 ** 20).toFixed(bytes < 10 * 2 ** 20 ? 1 : 0)} MB`;
+function cleanHint(state, use, now = Date.now()) {
+  if (state.lastCleanHint && now - state.lastCleanHint < CLEAN.hintEveryDays * DAY) return null;
+  const since = state.lastClean ?? state.firstSeen ?? now;
+  const days = Math.floor((now - since) / DAY);
+  const big = use.total >= CLEAN.bigBytes;
+  const stale = days >= CLEAN.staleDays && use.total >= CLEAN.staleBytes;
+  if (!big && !stale) return null;
+  const parts = `\u9875\u9762 ${use.pages.count} \u4E2A ${mb(use.pages.bytes)}\uFF0C\u89C6\u9891 ${mb(use.videos.bytes)}\uFF0C\u914D\u97F3\u7F13\u5B58 ${mb(use.cache.bytes)}`;
+  const when = state.lastClean ? `\u4E0A\u6B21\u6E05\u7406\u5728 ${days} \u5929\u524D` : "\u8FD8\u6CA1\u6709\u6E05\u7406\u8FC7";
+  return `! \u6E05\u7406\u63D0\u793A\uFF1A\u6570\u636E\u76EE\u5F55\u5DF2\u5360\u7528 ${mb(use.total)}\uFF08${parts}\uFF09\uFF0C${when}\u3002\u8BF7\u95EE\u7528\u6237\u662F\u5426\u8FD0\u884C am clean\uFF08\u5220\u9664 ${CLEAN.days} \u5929\u524D\u7684\u9875\u9762\u548C\u89C6\u9891\uFF0C\u5E76\u6E05\u7A7A\u914D\u97F3\u7F13\u5B58\uFF1B\u5168\u90E8\u6E05\u6389\u7528 am clean --all\uFF09\u3002`;
+}
+function afterRender({ home, env, config, current, scriptPath, background, now = Date.now() }) {
+  let state = readState(home);
+  if (!state.firstSeen) state = writeState(home, { firstSeen: now });
+  const hints = [];
+  const c = cleanHint(state, usage(home), now);
+  if (c) {
+    hints.push(c);
+    state = writeState(home, { lastCleanHint: now });
+  }
+  const u = updateEnabled(env, config) ? updateHint(state, current, scriptPath, now) : null;
+  if (u) {
+    hints.push(u);
+    writeState(home, { lastUpdateHint: now });
+  }
+  if (background && scriptPath && shouldCheckUpdate(state, env, config, now)) spawnUpdateCheck(home, scriptPath);
+  return hints;
+}
+
+// src/config.js
+import { readFileSync as readFileSync3, writeFileSync as writeFileSync4, mkdirSync as mkdirSync3, rmSync as rmSync4, existsSync as existsSync4 } from "node:fs";
+import { homedir } from "node:os";
+import { join as join5, dirname } from "node:path";
+var ConfigError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ConfigError";
+  }
+};
+var CONFIG_KEYS = Object.freeze({
+  open: { type: "bool", default: true, label: "\u751F\u6210\u540E\u81EA\u52A8\u7528\u6D4F\u89C8\u5668\u6253\u5F00\u9875\u9762" },
+  always: { type: "bool", default: true, label: "\u9AD8\u9891\u6A21\u5F0F\uFF1A\u7ED9\u7ED3\u8BBA\u65F6\u90FD\u9644\u4E00\u9875" },
+  theme: { type: "enum", choices: CHOICES.theme, default: "blueprint", label: "\u9ED8\u8BA4\u4E3B\u9898" },
+  mode: { type: "enum", choices: CHOICES.mode, default: "auto", label: "\u9ED8\u8BA4\u660E\u6697\u6A21\u5F0F" },
+  style: { type: "enum", choices: CHOICES.style, default: "80", label: "STE \u5199\u4F5C\u68C0\u67E5\u4E25\u683C\u5EA6" },
+  update_check: { type: "bool", default: true, label: "\u6BCF\u5468\u5728\u540E\u53F0\u68C0\u67E5\u4E00\u6B21\u65B0\u7248\u672C\uFF0C\u6709\u65B0\u7248\u672C\u65F6\u63D0\u793A\uFF08\u4E0D\u4F1A\u81EA\u52A8\u66F4\u65B0\uFF09" },
+  voice: { type: "enum", choices: ["auto", "elevenlabs", "system", "off"], default: "auto", label: "\u89C6\u9891\u65C1\u767D\u914D\u97F3\uFF08auto\uFF1A\u6709 ELEVENLABS_API_KEY \u7528 ElevenLabs\uFF0C\u5426\u5219\u7528\u7CFB\u7EDF TTS\uFF09" }
+});
+var TRUE = /* @__PURE__ */ new Set(["on", "true", "yes", "1", "\u5F00", "\u5F00\u542F", "\u6253\u5F00"]);
+var FALSE = /* @__PURE__ */ new Set(["off", "false", "no", "0", "\u5173", "\u5173\u95ED"]);
+function amHome(env = process.env) {
+  return env.AM_HOME || join5(homedir(), ".papergit2video", "am");
+}
+function configPath(env = process.env) {
+  return join5(amHome(env), "config.json");
+}
+var defaults = () => Object.fromEntries(Object.entries(CONFIG_KEYS).map(([k2, s]) => [k2, s.default]));
+function coerce2(key, raw) {
+  const spec = CONFIG_KEYS[key];
+  if (!spec) throw new ConfigError(`\u6CA1\u6709\u914D\u7F6E\u9879 "${key}"\u3002\u53EF\u7528\uFF1A${Object.keys(CONFIG_KEYS).join(" | ")}`);
+  if (spec.type === "bool") {
+    if (typeof raw === "boolean") return raw;
+    const v2 = String(raw).trim().toLowerCase();
+    if (TRUE.has(v2)) return true;
+    if (FALSE.has(v2)) return false;
+    throw new ConfigError(`${key} \u53EA\u63A5\u53D7 on / off`);
+  }
+  const v = String(raw).trim();
+  if (!spec.choices.includes(v)) throw new ConfigError(`${key} \u7684\u503C "${v}" \u65E0\u6548\uFF0C\u53EF\u9009\uFF1A${spec.choices.join(" | ")}`);
+  return v;
+}
+function readStored(env) {
+  const file = configPath(env);
+  if (!existsSync4(file)) return { stored: {} };
+  try {
+    const data = JSON.parse(readFileSync3(file, "utf8"));
+    return { stored: data && typeof data === "object" && !Array.isArray(data) ? data : {} };
+  } catch (e) {
+    return { stored: {}, warning: `${file} \u65E0\u6CD5\u89E3\u6790\uFF0C\u5DF2\u4F7F\u7528\u9ED8\u8BA4\u914D\u7F6E\uFF08${e.message}\uFF09` };
+  }
+}
+function readConfig(env = process.env) {
+  const { stored, warning } = readStored(env);
+  const values = defaults();
+  for (const [k2, v] of Object.entries(stored)) {
+    if (!CONFIG_KEYS[k2]) continue;
+    try {
+      values[k2] = coerce2(k2, v);
+    } catch {
+    }
+  }
+  return { values, stored, warning, path: configPath(env) };
+}
+function writeStored(stored, env) {
+  const file = configPath(env);
+  if (!Object.keys(stored).length) {
+    rmSync4(file, { force: true });
+    return;
+  }
+  mkdirSync3(dirname(file), { recursive: true });
+  writeFileSync4(file, `${JSON.stringify(stored, null, 2)}
+`);
+}
+function setConfig(key, raw, env = process.env) {
+  const value = coerce2(key, raw);
+  const { stored } = readStored(env);
+  writeStored({ ...stored, [key]: value }, env);
+  return value;
+}
+function resetConfig(key, env = process.env) {
+  if (key !== void 0 && !CONFIG_KEYS[key]) coerce2(key, "");
+  const { stored } = readStored(env);
+  const next = key === void 0 ? {} : Object.fromEntries(Object.entries(stored).filter(([k2]) => k2 !== key));
+  writeStored(next, env);
+}
+
+// src/patch.js
+var SOURCE_OPEN = '<textarea id="am-source"';
+var SOURCE_RE = /^<textarea id="am-source"[^>]*>([\s\S]*?)<\/textarea>/;
+var ATTR_BLOCK2 = /\s*\{([^{}]*)\}\s*$/;
+var PatchError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "PatchError";
+  }
+};
+function extractSource(html) {
+  const s = String(html);
+  const open = s.lastIndexOf(SOURCE_OPEN);
+  if (open === -1) return null;
+  const m = s.slice(open).match(SOURCE_RE);
+  if (!m) return null;
+  return unescapeHtml(m[1]);
+}
+function rootHtmlTag(html) {
+  return String(html).match(/<html\b[^>]*>/)?.[0] ?? "";
+}
+function isVideoPage(html) {
+  return /\sdata-video\b/.test(rootHtmlTag(html));
+}
+function unescapeHtml(s) {
+  return s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+}
+function normalizePanelQuery(query) {
+  let q3 = String(query ?? "").trim();
+  if (q3.startsWith("##")) q3 = q3.replace(/^##\s*/, "");
+  q3 = q3.replace(ATTR_BLOCK2, "").trim();
+  return q3;
+}
+function panelKeys(panel) {
+  const title = panel.title.trim();
+  const id = String(panel.id || "").trim();
+  const keys = /* @__PURE__ */ new Set([title]);
+  if (id) {
+    keys.add(id);
+    if (title) keys.add(`${id} ${title}`);
+  }
+  return keys;
+}
+function findPanel(doc2, query) {
+  const q3 = normalizePanelQuery(query);
+  if (!q3) throw new PatchError("\u7F3A\u5C11 --panel \u6807\u9898");
+  const matches = doc2.panels.filter((p) => panelKeys(p).has(q3));
+  if (matches.length === 0) throw new PatchError(`\u6CA1\u6709\u627E\u5230\u6807\u9898\u4E3A "${query}" \u7684\u9762\u677F`);
+  if (matches.length > 1) throw new PatchError(`\u6807\u9898 "${query}" \u5339\u914D\u5230\u591A\u4E2A\u9762\u677F`);
+  return matches[0];
+}
+function asSinglePanelMarkdown(replacement) {
+  const text = String(replacement).replace(/\r\n?/g, "\n");
+  if (!text.trim()) throw new PatchError("\u65B0\u9762\u677F\u7A3F\u4EF6\u4E3A\u7A7A");
+  const looksLikeHeading = /^\s*##\s+/.test(text);
+  const doc2 = parseDoc(looksLikeHeading ? text : `## _
+${text}`);
+  if (doc2.panels.length !== 1) throw new PatchError("\u65B0\u9762\u677F\u7A3F\u4EF6\u5FC5\u987B\u53EA\u5305\u542B\u4E00\u4E2A ## \u9762\u677F");
+  return { text, looksLikeHeading };
+}
+function pageSettings(html) {
+  const s = String(html);
+  const root = rootHtmlTag(s);
+  const attr = (name) => root.match(new RegExp(`\\s${name}="([^"]+)"`))?.[1];
+  const main2 = s.match(/<main class="am-(doc|sheet)\b/);
+  const template = isVideoPage(html) ? "video" : main2?.[1];
+  return { template, theme: attr("data-theme"), mode: attr("data-mode"), style: attr("data-style") };
+}
+function replacePanel(source, query, replacement) {
+  const doc2 = parseDoc(source);
+  const panel = findPanel(doc2, query);
+  const idx = doc2.panels.indexOf(panel);
+  const lines = String(source).replace(/\r\n?/g, "\n").split("\n");
+  const start = panel.line - 1;
+  const end = doc2.panels[idx + 1] ? doc2.panels[idx + 1].line - 1 : lines.length;
+  const { text, looksLikeHeading } = asSinglePanelMarkdown(replacement);
+  const section = looksLikeHeading ? text : `${lines[start]}
+${text.replace(/^\n+/, "")}`;
+  const newLines = section.replace(/\n$/, "").split("\n");
+  return [...lines.slice(0, start), ...newLines, ...lines.slice(end)].join("\n");
+}
+
+// src/cli.js
+var MAX_LISTED_WARNINGS = 20;
+var USAGE = `am ${VERSION} \u2014 \u628A Markdown \u5185\u5BB9\u7A3F\u6E32\u67D3\u6210\u5355\u6587\u4EF6 HTML \u89E3\u91CA\u9875
+
+\u7528\u6CD5:
+  am render <file|->  [-o \u8F93\u51FA\u8DEF\u5F84] [--no-open] [--theme blueprint|shadcn]
+                      [--template sheet|doc] [--style off|80|strict] [--mode auto|light|dark]
+  am patch  <html> --panel <\u6807\u9898> [file|-] [--from file] [--theme \u2026] [--no-open]
+                                                  \u66FF\u6362\u5DF2\u6709\u9875\u9762\u4E2D\u7684\u4E00\u4E2A ## \u9762\u677F\uFF0C\u539F\u5730\u8986\u76D6\u8BE5 HTML
+  am video  <file|->  [-o \u8F93\u51FA\u8DEF\u5F84] [--voice auto|elevenlabs|system|off] [--mp4] [--no-open]
+                      [--theme blueprint|shadcn|3b1b] [--mode light|dark]
+                                                  \u628A\u89C6\u9891\u7A3F\u6E32\u67D3\u6210 3b1b \u98CE\u683C\u7684\u89E3\u91CA\u89C6\u9891\u64AD\u653E\u9875\uFF08--mp4 \u53E6\u5B58\u89C6\u9891\u6587\u4EF6\uFF09
+  am lint   <file|->  [--style off|80|strict]     \u53EA\u505A STE \u53D7\u63A7\u5199\u4F5C\u68C0\u67E5
+  am config [set <\u952E> <\u503C> | get <\u952E> | reset [\u952E]] \u67E5\u770B\u6216\u4FEE\u6539\u914D\u7F6E
+  am clean  [--days 30] [--all] [--dry-run]       \u6E05\u7406\u65E7\u9875\u9762\u3001\u65E7\u89C6\u9891\u548C\u914D\u97F3\u7F13\u5B58
+  am list                                         \u5217\u51FA\u6A21\u677F\u3001\u4E3B\u9898\u3001\u7EC4\u4EF6
+  am help [\u7EC4\u4EF6\u540D|format|video|patch]              \u67E5\u770B\u7EC4\u4EF6\u8BED\u6CD5 / \u9875\u9762\u7A3F\u683C\u5F0F / \u89C6\u9891\u7A3F\u683C\u5F0F / patch \u7528\u6CD5
+
+- \u6587\u4EF6\u53C2\u6570\u5199 - \u8868\u793A\u4ECE stdin \u8BFB\u53D6\uFF08\u9002\u5408 heredoc\uFF1Aam render - <<'EOF' ... EOF\uFF09\u3002
+- \u9ED8\u8BA4\u8F93\u51FA\u5230 ~/.papergit2video/am/pages/\uFF08\u53EF\u7528\u73AF\u5883\u53D8\u91CF AM_HOME \u4FEE\u6539\uFF09\u3002
+- \u662F\u5426\u81EA\u52A8\u6253\u5F00\u6D4F\u89C8\u5668\u3001\u9ED8\u8BA4\u4E3B\u9898\u7B49\u7528 am config \u8BBE\u7F6E\uFF1B--open / --no-open \u53EA\u5F71\u54CD\u8FD9\u4E00\u6B21\u3002
+- am patch \u4ECE\u9875\u9762\u9690\u85CF\u7684 #am-source \u53D6\u56DE\u6E90\u7A3F\uFF0C\u53EA\u6539 --panel \u5BF9\u5E94\u7684 ## \u5C0F\u8282\uFF0C\u518D\u6309\u539F\u8DEF\u5F84\u5199\u56DE\u3002`;
+var FORMAT = `\u7A3F\u4EF6\u683C\u5F0F\uFF08\u6269\u5C55 Markdown\uFF09
+
+---
+template: sheet        # sheet \u56FE\u7EB8\u677F\uFF08\u9ED8\u8BA4\uFF0C\u591A\u9762\u677F\u7F51\u683C\uFF09| doc \u7EBF\u6027\u8BB2\u89E3\uFF08\u5355\u680F + \u76EE\u5F55\uFF09
+theme: blueprint       # blueprint \u56FE\u7EB8\u98CE\uFF08\u9ED8\u8BA4\uFF09| shadcn \u5361\u7247\u98CE\uFF1B\u9875\u9762\u5185\u53EF\u5207\u6362
+title: \u9875\u9762\u6807\u9898         # \u4E5F\u53EF\u4EE5\u7528\u6B63\u6587\u7B2C\u4E00\u884C "# \u6807\u9898" \u4EE3\u66FF
+subtitle: \u526F\u6807\u9898        # \u53EF\u9009
+cols: 3                # sheet \u7F51\u683C\u5217\u6570\uFF0C\u9ED8\u8BA4 3
+style: 80              # STE \u68C0\u67E5\u4E25\u683C\u5EA6\uFF1Aoff | 80\uFF08\u9ED8\u8BA4\uFF0C\u53EA\u8B66\u544A\uFF09| strict\uFF08\u4E0D\u8FBE\u6807\u4E0D\u751F\u6210\uFF09
+mode: auto             # auto \u8DDF\u968F\u7CFB\u7EDF | light | dark
+source: asd-ste100.org # \u5176\u4ED6\u4EFB\u610F\u952E\u4F1A\u663E\u793A\u5728\u9875\u5934\u5143\u4FE1\u606F\u884C
+---
+\u5BFC\u8BED\uFF08\u53EF\u9009\uFF0C\u663E\u793A\u5728\u6807\u9898\u4E0B\u65B9\uFF09
+
+## A \u9762\u677F\u6807\u9898 {span=2 meta="\u53F3\u4E0A\u89D2\u8BF4\u660E"}
+\u666E\u901A Markdown\uFF1A\u6BB5\u843D\u3001\u5217\u8868\u3001\u8868\u683C\u3001\u5F15\u7528\u3001\u884C\u5185\u4EE3\u7801\u2026\u2026
+\u8868\u683C\u5355\u5143\u683C\u5199 ok / no / warn\uFF08\u53EF\u8DDF\u6587\u5B57\uFF0C\u5982 "ok \u5DF2\u6279\u51C6"\uFF09\u4F1A\u6E32\u67D3\u6210 \u2713 / \u2717 / ! \u5FBD\u7AE0\u3002
+
+\`\`\`flow LR          \u2190 \u56F4\u680F\u5757\u8BED\u8A00\u540D = \u7EC4\u4EF6\u540D\uFF0C\u540E\u9762\u662F\u7EC4\u4EF6\u53C2\u6570
+A -> B
+\`\`\`
+
+\`\`\`html             \u2190 html / svg \u56F4\u680F\u5757\u539F\u6837\u5D4C\u5165\uFF08\u9003\u751F\u53E3\uFF09
+<div>\u4EFB\u610F\u5185\u5BB9</div>
+\`\`\`
+
+- "## " \u5F00\u542F\u4E00\u4E2A\u9762\u677F\uFF1B\u5B57\u6BCD ID \u53EF\u7701\u7565\uFF08\u81EA\u52A8\u5206\u914D A\u3001B\u3001C\u2026\uFF09\u3002span \u8BA9\u9762\u677F\u8DE8\u5217\u3002
+- \u7EC4\u4EF6\u5217\u8868\u89C1 am list\uFF1B\u5355\u4E2A\u7EC4\u4EF6\u8BED\u6CD5\u89C1 am help <\u7EC4\u4EF6\u540D>\u3002`;
+var RAW_HELP = `LANG \u2014 \u539F\u6837\u5D4C\u5165\uFF08\u9003\u751F\u53E3\uFF09
+
+\u56F4\u680F\u5757\u8BED\u8A00\u540D\u5199 LANG \u65F6\uFF0C\u5185\u5BB9\u4E0D\u7ECF\u5904\u7406\u76F4\u63A5\u653E\u8FDB\u9875\u9762\u3002\u53EA\u5728\u73B0\u6709\u7EC4\u4EF6\u8868\u8FBE\u4E0D\u4E86\u65F6\u4F7F\u7528\uFF1B
+\u989C\u8272\u8BF7\u7528\u4E3B\u9898\u53D8\u91CF\uFF08\u5982 var(--ink)\u3001var(--accent)\uFF09\uFF0C\u8FD9\u6837\u5207\u6362\u4E3B\u9898\u548C\u660E\u6697\u65F6\u4E5F\u80FD\u770B\u6E05\u3002
+
+\u793A\u4F8B\uFF1A
+\`\`\`LANG
+<div style="color: var(--accent)">\u4EFB\u610F\u5185\u5BB9</div>
+\`\`\``;
+var VIDEO_FORMAT = `\u89C6\u9891\u7A3F\u683C\u5F0F\uFF08am video\uFF09
+
+---
+title: TCP \u4E09\u6B21\u63E1\u624B
+subtitle: \u4E3A\u4EC0\u4E48\u662F\u4E09\u6B21          # \u53EF\u9009\uFF0C\u7247\u5934\u526F\u6807\u9898
+theme: blueprint               # blueprint \u56FE\u7EB8\u98CE\uFF08\u9ED8\u8BA4\uFF0C\u8DDF\u968F am config \u7684 theme\uFF09| shadcn \u5361\u7247 | 3b1b \u6DF1\u8272
+mode: light                    # light | dark\uFF08blueprint + dark \u662F\u6DF1\u84DD\u56FE\u7EB8\uFF09
+---
+> \u7247\u5934\u65C1\u767D\uFF08\u53EF\u9009\uFF1B\u4E0D\u5199\u5219\u7247\u5934\u505C\u7559 2.4 \u79D2\uFF09
+
+## \u4E24\u7AEF\u90FD\u5728\u7B49\u5F85
+\`\`\`sequence
+Client -> Server: SYN
+Server -> Client: SYN-ACK
+Client -> Server: ACK
+\`\`\`
+> \u5BA2\u6237\u7AEF\u5148\u53D1 SYN\uFF0C\u8BF7\u6C42\u5EFA\u7ACB\u8FDE\u63A5\u3002
+> [Server] \u6536\u5230\u540E\u56DE SYN-ACK\u3002
+> \u5BA2\u6237\u7AEF\u518D\u56DE ACK\uFF0C\u8FDE\u63A5\u5EFA\u7ACB\u3002
+
+- "## " \u5F00\u542F\u4E00\u4E2A\u573A\u666F\uFF1B\u573A\u666F\u91CC\u653E\u7EC4\u4EF6\u6216 Markdown\uFF08\u753B\u9762\uFF09\uFF0C\u4EE5 > \u5F00\u5934\u7684\u884C\u662F\u65C1\u767D\uFF08\u6BCF\u884C\u4E00\u62CD\uFF09\u3002
+- \u7B2C N \u53E5\u65C1\u767D\u64AD\u51FA\u65F6\uFF0C\u753B\u9762\u51FA\u73B0\u7B2C N \u6B65\uFF1Aflow / sequence / tree \u6BCF\u884C\u6E90\u7801\u662F\u4E00\u6B65\uFF1B
+  timeline\u3001limits\u3001\u8868\u683C\u884C\u3001\u5217\u8868\u9879\u3001\u6BB5\u843D\u6309\u6761\u76EE\u81EA\u52A8\u5206\u6B65\u3002\u6B65\u6570\u591A\u4E8E\u65C1\u767D\u65F6\u5747\u5206\u5230\u5404\u53E5\uFF1B
+  \u65C1\u767D\u591A\u4E8E\u6B65\u6570\u65F6\uFF0C\u591A\u51FA\u7684\u524D\u51E0\u53E5\u5F53\u5F00\u573A\u767D\uFF0C\u4E0D\u51FA\u65B0\u5185\u5BB9\u3002
+- \u65C1\u767D\u91CC\u5199 [\u540D\u5B57]\uFF1A\u955C\u5934\u63A8\u8FD1\u540C\u540D\u5143\u7D20\u5E76\u9AD8\u4EAE\uFF0C\u5B57\u5E55\u91CC\u8BE5\u8BCD\u53D8\u9EC4\u3002
+- \u76F8\u90BB\u573A\u666F\u91CC\u540C\u540D\u7684\u8282\u70B9 / \u53C2\u4E0E\u8005\u4F1A\u4ECE\u65E7\u4F4D\u7F6E\u5E73\u6ED1\u79FB\u5230\u65B0\u4F4D\u7F6E\uFF08\u8DE8\u573A\u666F\u53D8\u5F62\uFF09\u3002
+- \u914D\u97F3\uFF1A--voice auto\uFF08\u9ED8\u8BA4\uFF0C\u6709 ELEVENLABS_API_KEY \u7528 ElevenLabs\uFF0C\u5426\u5219\u7528\u7CFB\u7EDF TTS\uFF09| elevenlabs | system | off\u3002
+  ElevenLabs \u58F0\u97F3\u53EF\u7528\u73AF\u5883\u53D8\u91CF ELEVENLABS_VOICE_ID \u6307\u5B9A\u3002
+- \u8F93\u51FA\u5230 ~/.papergit2video/am/videos/\uFF1B--mp4 \u53E6\u5B58\u540C\u540D .mp4\uFF08\u9700\u8981 Chrome \u4E0E ffmpeg\uFF0CNode 22+\uFF09\u3002`;
+async function main(argv, io = {}) {
+  const out = io.stdout ?? process.stdout;
+  const err = io.stderr ?? process.stderr;
+  const env = io.env ?? process.env;
+  const print = (s = "") => out.write(`${s}
+`);
+  const fail = (s) => err.write(`${s}
+`);
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: argv,
+      allowPositionals: true,
+      options: {
+        out: { type: "string", short: "o" },
+        "no-open": { type: "boolean" },
+        open: { type: "boolean" },
+        theme: { type: "string" },
+        template: { type: "string" },
+        style: { type: "string" },
+        mode: { type: "string" },
+        voice: { type: "string" },
+        mp4: { type: "boolean" },
+        panel: { type: "string" },
+        from: { type: "string" },
+        days: { type: "string" },
+        all: { type: "boolean" },
+        "dry-run": { type: "boolean" },
+        help: { type: "boolean", short: "h" },
+        version: { type: "boolean", short: "v" }
+      }
+    });
+  } catch (e) {
+    fail(`\u2717 ${e.message}
+
+${USAGE}`);
+    return 2;
+  }
+  const { values: opts, positionals: [cmd, arg, ...rest] } = parsed;
+  if (opts.version) return print(VERSION), 0;
+  if (opts.help || !cmd) return print(USAGE), 0;
+  switch (cmd) {
+    case "render":
+      return withSource(arg, io, fail, (src) => cmdRender(src, opts, { print, fail, env, io }));
+    case "patch":
+      return cmdPatch(arg, rest[0], opts, { print, fail, env, io });
+    case "video":
+      return withSource(arg, io, fail, (src) => cmdVideo(src, opts, { print, fail, env, io }));
+    case "lint":
+      return withSource(arg, io, fail, (src) => cmdLint(src, opts, { print, fail }));
+    case "config":
+      return cmdConfig([arg, ...rest].filter((x2) => x2 !== void 0), { print, fail, env });
+    case "clean":
+      return cmdClean(opts, { print, fail, env });
+    case "__update-check":
+      return await runUpdateCheck(amHome(env)) ? 0 : 1;
+    case "list":
+      return cmdList(print), 0;
+    case "help":
+      return cmdHelp(arg, { print, fail });
+    default:
+      fail(`\u2717 \u672A\u77E5\u547D\u4EE4 "${cmd}"
+
+${USAGE}`);
+      return 2;
+  }
+}
+async function withSource(arg, io, fail, fn3) {
+  if (!arg) {
+    fail("\u2717 \u7F3A\u5C11\u7A3F\u4EF6\u53C2\u6570\uFF1A\u4F20\u5165\u6587\u4EF6\u8DEF\u5F84\uFF0C\u6216\u7528 - \u4ECE stdin \u8BFB\u53D6");
+    return 2;
+  }
+  let src;
+  try {
+    src = arg === "-" ? await readStream(io.stdin ?? process.stdin) : readFileSync4(resolve(io.cwd ?? process.cwd(), arg), "utf8");
+  } catch (e) {
+    fail(`\u2717 \u65E0\u6CD5\u8BFB\u53D6\u7A3F\u4EF6\uFF1A${e.message}`);
+    return 2;
+  }
+  if (!src.trim()) {
+    fail("\u2717 \u7A3F\u4EF6\u4E3A\u7A7A");
+    return 2;
+  }
+  return fn3(src);
+}
+async function readStream(stream) {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  return Buffer.concat(chunks).toString("utf8");
+}
+function shouldOpen(opts, env, config) {
+  if (opts.open) return true;
+  if (opts["no-open"]) return false;
+  if (env.AM_NO_OPEN && env.AM_NO_OPEN !== "0") return false;
+  if (env.CI) return false;
+  return config.open !== false;
+}
+function cmdRender(src, opts, ctx) {
+  const { print, fail, env } = ctx;
+  const config = loadConfig(ctx);
+  const { theme, mode, style } = config.values;
+  let result;
+  try {
+    result = renderDoc(src, { theme: opts.theme, template: opts.template, style: opts.style, mode: opts.mode }, { theme, mode, style });
+  } catch (e) {
+    return reportError(e, fail);
+  }
+  const file = writeOutput(result.html, "pages", result.meta.title, opts, ctx);
+  const comps = Object.entries(result.stats.components).map(([k2, v]) => `${k2}\xD7${v}`).join(" ");
+  print(`\u2713 ${file}`);
+  print(`  ${result.meta.template} \xB7 ${result.meta.theme} \xB7 ${result.stats.panels} \u9762\u677F${comps ? ` \xB7 ${comps}` : ""}`);
+  printWarnings(result.warnings, print, result.meta.style);
+  return finish(file, opts, config, ctx);
+}
+var PATCH_HELP = `\u539F\u5730\u66FF\u6362\u5DF2\u6E32\u67D3\u9875\u9762\u4E2D\u7684\u4E00\u4E2A\u9762\u677F
+
+\u7528\u6CD5:
+  am patch <html-file> --panel <\u6807\u9898> < new-panel.md
+  am patch <html-file> --panel <\u6807\u9898> --from new-panel.md
+  am patch <html-file> --panel <\u6807\u9898> -
+
+- \u4ECE <html-file> \u91CC\u9690\u85CF\u7684 <textarea id="am-source"> \u53D6\u56DE\u6E90\u7A3F\u3002
+- --panel \u5339\u914D ## \u5C0F\u8282\u7684\u6807\u9898\u3001\u5B57\u6BCD ID\uFF0C\u6216 "ID \u6807\u9898"\u3002
+- \u65B0\u7A3F\u4EF6\u4ECE stdin \u6216 --from / \u7B2C\u4E8C\u4E2A\u6587\u4EF6\u53C2\u6570\u8BFB\u53D6\uFF1A\u53EF\u5E26 ## \u6807\u9898\uFF0C\u4E5F\u53EF\u53EA\u5199\u9762\u677F\u6B63\u6587\u3002
+- \u7528\u73B0\u6709 renderer \u91CD\u6E32\u540E\u8986\u76D6\u540C\u4E00\u4E2A HTML \u8DEF\u5F84\uFF0C\u4E0D\u53E6\u5199\u5E26\u65F6\u95F4\u6233\u7684\u65B0\u6587\u4EF6\u3002
+- \u6CBF\u7528\u539F\u9875\u9762\u7684\u6A21\u677F\u3001\u4E3B\u9898\u3001\u660E\u6697\u548C STE style\uFF08\u751F\u6210\u65F6\u8BB0\u5728\u9875\u9762\u6839\u6807\u7B7E\u4E0A\uFF09\u3002\u4E4B\u540E\u6539\u4E86\u914D\u7F6E\uFF0C\u65E7\u9875\u9762 patch \u4E0D\u4F1A\u8DDF\u968F\uFF1B\u8981\u6362\u5C31\u52A0 --theme / --mode / --style\u3002
+- \u627E\u4E0D\u5230\u8BE5\u9762\u677F\uFF0C\u6216\u9875\u9762\u6CA1\u6709 #am-source\uFF0C\u9000\u51FA\u7801\u975E 0 \u4E14\u4E0D\u6539\u6587\u4EF6\u3002`;
+async function cmdPatch(htmlArg, fromArg, opts, ctx) {
+  const { print, fail, io } = ctx;
+  if (!htmlArg || htmlArg === "-") {
+    fail(htmlArg ? "\u2717 patch \u9700\u8981\u5DF2\u6709 HTML \u6587\u4EF6\u8DEF\u5F84\uFF0C\u4E0D\u80FD\u4ECE stdin \u8BFB\u9875\u9762" : "\u2717 \u7F3A\u5C11 HTML \u6587\u4EF6\u8DEF\u5F84");
+    return 2;
+  }
+  if (!opts.panel || !String(opts.panel).trim()) {
+    fail("\u2717 \u7F3A\u5C11 --panel <\u6807\u9898>");
+    return 2;
+  }
+  const cwd = io.cwd ?? process.cwd();
+  const file = resolve(cwd, htmlArg);
+  let html;
+  try {
+    html = readFileSync4(file, "utf8");
+  } catch (e) {
+    fail(`\u2717 \u65E0\u6CD5\u8BFB\u53D6 HTML\uFF1A${e.message}`);
+    return 2;
+  }
+  const source = extractSource(html);
+  if (source == null) {
+    fail("\u2717 \u9875\u9762\u91CC\u6CA1\u6709 #am-source\uFF0C\u65E0\u6CD5\u53D6\u56DE\u6E90\u7A3F");
+    return 1;
+  }
+  const from = opts.from ?? fromArg;
+  let replacement;
+  try {
+    replacement = !from || from === "-" ? await readStream(io.stdin ?? process.stdin) : readFileSync4(resolve(cwd, from), "utf8");
+  } catch (e) {
+    fail(`\u2717 \u65E0\u6CD5\u8BFB\u53D6\u65B0\u9762\u677F\u7A3F\u4EF6\uFF1A${e.message}`);
+    return 2;
+  }
+  let patched;
+  try {
+    patched = replacePanel(source, opts.panel, replacement);
+  } catch (e) {
+    if (!(e instanceof PatchError)) return reportError(e, fail);
+    fail(`\u2717 ${e.message}`);
+    return 1;
+  }
+  const config = loadConfig(ctx);
+  const { theme, mode, style } = config.values;
+  const page = pageSettings(html);
+  const video = isVideoPage(html);
+  const overrides = {
+    template: video ? void 0 : opts.template ?? page.template,
+    theme: opts.theme ?? page.theme,
+    mode: opts.mode ?? page.mode,
+    style: opts.style ?? page.style
+  };
+  let result;
+  try {
+    if (video) {
+      const voice = opts.voice ?? (html.includes('<audio id="amv-audio"') ? config.values.voice : "off");
+      if (!VOICES.includes(voice)) {
+        fail(`\u2717 voice \u7684\u503C "${voice}" \u65E0\u6548\uFF0C\u53EF\u9009\uFF1A${VOICES.join(" | ")}`);
+        return 2;
+      }
+      result = await buildVideo(patched, voice, { ...opts, theme: overrides.theme, mode: overrides.mode, style: overrides.style }, config, ctx);
+    } else {
+      result = renderDoc(patched, overrides, { theme, mode, style });
+    }
+  } catch (e) {
+    if (e instanceof TtsError) {
+      fail(`\u2717 \u914D\u97F3\u5931\u8D25\uFF1A${e.message}\u3002\u53EF\u52A0 --voice off \u53EA\u51FA\u5B57\u5E55`);
+      return 1;
+    }
+    return reportError(e, fail);
+  }
+  writeFileSync5(file, result.html);
+  const comps = Object.entries(result.stats.components).map(([k2, v]) => `${k2}\xD7${v}`).join(" ");
+  print(`\u2713 ${file}`);
+  print(video ? `  video \xB7 ${result.meta.theme} \xB7 ${result.stats.panels} \u573A\u666F \xB7 ${result.beats} \u53E5\u65C1\u767D \xB7 ${result.duration.toFixed(1)}s \xB7 \u914D\u97F3\uFF1A${result.voiceName}\uFF08\u540C\u540D MP4 \u4E0D\u4F1A\u81EA\u52A8\u66F4\u65B0\uFF0C\u9700\u8981\u65F6\u7528 am video --mp4 \u91CD\u65B0\u5BFC\u51FA\uFF09` : `  ${result.meta.template} \xB7 ${result.meta.theme} \xB7 ${result.stats.panels} \u9762\u677F${comps ? ` \xB7 ${comps}` : ""}`);
+  printWarnings(result.warnings, print, result.meta.style);
+  return finish(file, opts, config, ctx);
+}
+async function cmdVideo(src, opts, ctx) {
+  const { print, fail } = ctx;
+  const config = loadConfig(ctx);
+  const voice = opts.voice ?? config.values.voice;
+  if (!VOICES.includes(voice)) {
+    fail(`\u2717 voice \u7684\u503C "${voice}" \u65E0\u6548\uFF0C\u53EF\u9009\uFF1A${VOICES.join(" | ")}`);
+    return 2;
+  }
+  let result;
+  try {
+    result = await buildVideo(src, voice, opts, config, ctx);
+  } catch (e) {
+    if (!(e instanceof TtsError)) return reportError(e, fail);
+    fail(`\u2717 \u914D\u97F3\u5931\u8D25\uFF1A${e.message}\u3002\u53EF\u52A0 --voice off \u53EA\u51FA\u5B57\u5E55`);
+    return 1;
+  }
+  const file = writeOutput(result.html, "videos", result.meta.title, opts, ctx);
+  print(`\u2713 ${file}`);
+  print(`  video \xB7 ${result.stats.panels} \u573A\u666F \xB7 ${result.beats} \u53E5\u65C1\u767D \xB7 ${result.duration.toFixed(1)}s \xB7 \u914D\u97F3\uFF1A${result.voiceName}`);
+  printWarnings(result.warnings, print, result.meta.style);
+  if (opts.mp4 && !await exportVideoMp4(file, result.wav, ctx)) return 1;
+  return finish(file, opts, config, ctx);
+}
+async function buildVideo(src, voice, opts, config, { fail, env, io }) {
+  const provider = io.ttsProvider !== void 0 ? io.ttsProvider : pickProvider(voice, env);
+  const result = await renderVideo(src, {
+    provider,
+    cacheDir: join6(amHome(env), "cache", "tts"),
+    defaults: { style: config.values.style, theme: config.values.theme, mode: config.values.mode },
+    overrides: { style: opts.style, theme: opts.theme, mode: opts.mode },
+    onProgress: (msg) => fail(`  ${msg}`)
+  });
+  return { ...result, voiceName: provider ? provider.name : "\u65E0\uFF08\u53EA\u51FA\u5B57\u5E55\uFF09" };
+}
+async function exportVideoMp4(file, wav2, { print, fail, env }) {
+  const mp4 = `${file.replace(/\.html?$/i, "")}.mp4`;
+  const started = Date.now();
+  try {
+    await exportMp4(file, mp4, { wav: wav2, env, onProgress: (i, n) => fail(`  \u5BFC\u51FA MP4\uFF1A${i}/${n} \u5E27`) });
+  } catch (e) {
+    if (!(e instanceof ExportError)) throw e;
+    fail(`\u2717 MP4 \u5BFC\u51FA\u5931\u8D25\uFF1A${e.message}\u3002\u64AD\u653E\u9875\u5DF2\u751F\u6210\uFF0C\u53EF\u76F4\u63A5\u5728\u6D4F\u89C8\u5668\u64AD\u653E`);
+    return false;
+  }
+  print(`\u2713 ${mp4}\uFF08${((Date.now() - started) / 1e3).toFixed(0)}s \u5BFC\u51FA\uFF09`);
+  return true;
+}
+function loadConfig({ fail, env }) {
+  const config = readConfig(env);
+  if (config.warning) fail(`! ${config.warning}`);
+  return config;
+}
+function writeOutput(html, dir, title, opts, { env, io }) {
+  const file = opts.out ? resolve(io.cwd ?? process.cwd(), opts.out) : join6(amHome(env), dir, `${slug(title)}-${stamp()}.html`);
+  mkdirSync4(dirname2(file), { recursive: true });
+  writeFileSync5(file, html);
+  return file;
+}
+function finish(file, opts, config, ctx) {
+  printHints(config, ctx);
+  if (shouldOpen(opts, ctx.env, config.values)) openFile(file);
+  return 0;
+}
+function printHints(config, { env, io, print }) {
+  try {
+    const hints = afterRender({
+      home: amHome(env),
+      env,
+      config: config.values,
+      current: VERSION,
+      scriptPath: io.scriptPath,
+      background: Boolean(io.background)
+    });
+    hints.forEach((h2) => print(h2));
+  } catch {
+  }
+}
+function cmdClean(opts, { print, fail, env }) {
+  if (opts.days !== void 0 && !/^\d+$/.test(opts.days.trim())) {
+    fail("\u2717 --days \u9700\u8981\u975E\u8D1F\u6574\u6570");
+    return 2;
+  }
+  const days = opts.days === void 0 ? CLEAN.days : Number(opts.days);
+  const home = amHome(env);
+  const before = usage(home);
+  const dry = Boolean(opts["dry-run"]);
+  const r = clean2(home, { days, all: Boolean(opts.all), dryRun: dry });
+  const scope = opts.all ? "\u5168\u90E8\u9875\u9762\u548C\u89C6\u9891" : `${days} \u5929\u524D\u7684\u9875\u9762\u548C\u89C6\u9891`;
+  print(`\u6570\u636E\u76EE\u5F55\uFF1A${home}\uFF08\u5171 ${mb(before.total)}\uFF1A\u9875\u9762 ${before.pages.count} \u4E2A\uFF0C\u89C6\u9891 ${before.videos.count} \u4E2A\uFF0C\u914D\u97F3\u7F13\u5B58 ${mb(before.cache.bytes)}\uFF09`);
+  print(dry ? `\u5C06\u5220\u9664 ${r.files} \u4E2A\u6587\u4EF6\uFF0C\u91CA\u653E ${mb(r.bytes)}\uFF08${scope} + \u914D\u97F3\u7F13\u5B58\uFF09\u3002\u53BB\u6389 --dry-run \u6267\u884C\u3002` : `\u2713 \u5DF2\u5220\u9664 ${r.files} \u4E2A\u6587\u4EF6\uFF0C\u91CA\u653E ${mb(r.bytes)}\uFF08${scope} + \u914D\u97F3\u7F13\u5B58\uFF09\u3002\u914D\u7F6E\u5DF2\u4FDD\u7559\u3002`);
+  return 0;
+}
+function cmdLint(src, opts, { print, fail }) {
+  let doc2;
+  try {
+    doc2 = parseDoc(src);
+  } catch (e) {
+    return reportError(e, fail);
+  }
+  const style = opts.style ?? doc2.meta.style;
+  if (!CHOICES.style.includes(style)) {
+    fail(`\u2717 style \u7684\u503C "${style}" \u65E0\u6548\uFF0C\u53EF\u9009\uFF1A${CHOICES.style.join(" | ")}`);
+    return 2;
+  }
+  const warnings = style === "off" ? [] : lintDoc(doc2);
+  printWarnings(warnings, print, style);
+  return style === "strict" && warnings.length ? 1 : 0;
+}
+function printWarnings(warnings, print, style) {
+  if (style === "off") return print("  STE \u68C0\u67E5\u5DF2\u5173\u95ED");
+  if (!warnings.length) return print("  STE \u2713 0 \u6761\u8B66\u544A");
+  print(`  STE ${warnings.length} \u6761\u8B66\u544A\uFF08\u4FEE\u6B63\u7A3F\u4EF6\u540E\u91CD\u65B0\u6267\u884C\uFF09\uFF1A`);
+  warnings.slice(0, MAX_LISTED_WARNINGS).forEach((w) => print(`  ${formatWarning(w)}`));
+  if (warnings.length > MAX_LISTED_WARNINGS) print(`  \u2026 \u53E6\u6709 ${warnings.length - MAX_LISTED_WARNINGS} \u6761\uFF0C\u7528 am lint \u67E5\u770B\u5168\u90E8`);
+}
+function reportError(e, fail) {
+  if (e instanceof RenderError) {
+    fail(`\u2717 L${e.line} [${e.component}] ${e.message}`);
+    if (e.example) fail(`  \u6B63\u786E\u793A\u4F8B\uFF1A
+${e.example.replace(/^/gm, "    ")}`);
+    fail(`  \u5B8C\u6574\u8BED\u6CD5\uFF1Aam help ${e.component}`);
+    return 1;
+  }
+  if (e instanceof ParseError) {
+    fail(`\u2717 ${e.line ? `L${e.line} ` : ""}\u7A3F\u4EF6\u89E3\u6790\u5931\u8D25\uFF1A${e.message}`);
+    return 1;
+  }
+  if (e instanceof LintError) {
+    fail(`\u2717 ${e.message}\uFF0C\u672A\u751F\u6210\u9875\u9762\uFF1A`);
+    e.warnings.forEach((w) => fail(`  ${formatWarning(w)}`));
+    return 1;
+  }
+  throw e;
+}
+var showValue = (v) => typeof v === "boolean" ? v ? "on" : "off" : String(v);
+function cmdConfig(args, { print, fail, env }) {
+  const [action, key, value] = args;
+  try {
+    if (action === "set") {
+      if (key === void 0 || value === void 0) throw new ConfigError("\u7528\u6CD5\uFF1Aam config set <\u952E> <\u503C>");
+      print(`\u2713 ${key} = ${showValue(setConfig(key, value, env))}`);
+      return 0;
+    }
+    if (action === "get") {
+      if (!CONFIG_KEYS[key]) throw new ConfigError(`\u6CA1\u6709\u914D\u7F6E\u9879 "${key}"\u3002\u53EF\u7528\uFF1A${Object.keys(CONFIG_KEYS).join(" | ")}`);
+      print(showValue(readConfig(env).values[key]));
+      return 0;
+    }
+    if (action === "reset") {
+      resetConfig(key, env);
+      print(key ? `\u2713 ${key} \u5DF2\u6062\u590D\u9ED8\u8BA4` : "\u2713 \u5168\u90E8\u914D\u7F6E\u5DF2\u6062\u590D\u9ED8\u8BA4");
+      return 0;
+    }
+    if (action !== void 0) throw new ConfigError(`\u672A\u77E5\u64CD\u4F5C "${action}"\u3002\u7528\u6CD5\uFF1Aam config [set <\u952E> <\u503C> | get <\u952E> | reset [\u952E]]`);
+  } catch (e) {
+    if (!(e instanceof ConfigError)) throw e;
+    fail(`\u2717 ${e.message}`);
+    return 2;
+  }
+  const { values, stored, warning, path } = readConfig(env);
+  if (warning) fail(`! ${warning}`);
+  print(`\u914D\u7F6E\u6587\u4EF6\uFF1A${path}`);
+  for (const [k2, spec] of Object.entries(CONFIG_KEYS)) {
+    const mark = k2 in stored ? "*" : " ";
+    const options = spec.type === "bool" ? "on | off" : spec.choices.join(" | ");
+    print(`${mark} ${k2.padEnd(13)}${showValue(values[k2]).padEnd(10)}${spec.label}\uFF08${options}\uFF09`);
+  }
+  if (env.AM_NO_OPEN && env.AM_NO_OPEN !== "0") print("\u6CE8\u610F\uFF1A\u73AF\u5883\u53D8\u91CF AM_NO_OPEN \u751F\u6548\u4E2D\uFF0C\u4F1A\u8986\u76D6 open \u914D\u7F6E\u3002");
+  print("* \u8868\u793A\u4F60\u6539\u8FC7\u7684\u503C\u3002\u4FEE\u6539\uFF1Aam config set <\u952E> <\u503C>\uFF1B\u6062\u590D\u9ED8\u8BA4\uFF1Aam config reset [\u952E]");
+  return 0;
+}
+function cmdList(print) {
+  print("\u6A21\u677F (template):");
+  print("  sheet   \u56FE\u7EB8\u677F\uFF1A\u5B57\u6BCD\u7F16\u53F7\u9762\u677F\u7F51\u683C\uFF0C\u9002\u5408\u4E00\u5C4F\u603B\u89C8\uFF08\u9ED8\u8BA4\uFF09");
+  print("  doc     \u7EBF\u6027\u8BB2\u89E3\uFF1A\u5355\u680F\u9605\u8BFB\uFF0C\u22653 \u4E2A\u9762\u677F\u65F6\u5E26\u76EE\u5F55");
+  print("  video   \u89E3\u91CA\u89C6\u9891\uFF1A\u7528 am video \u6E32\u67D3\uFF0C\u89C1 am help video");
+  print("\n\u4E3B\u9898 (theme):");
+  for (const [name, t] of Object.entries(THEMES)) print(`  ${name.padEnd(10)}${t.label}`);
+  print("\n\u7EC4\u4EF6\uFF08\u56F4\u680F\u5757\u8BED\u8A00\u540D\uFF09:");
+  for (const c of COMPONENTS.values()) print(`  ${c.name.padEnd(10)}${c.summary}`);
+  print("  html/svg  \u539F\u6837\u5D4C\u5165\uFF08\u9003\u751F\u53E3\uFF09");
+  print("\n\u8BED\u6CD5\uFF1Aam help <\u7EC4\u4EF6\u540D>\uFF1B\u7A3F\u4EF6\u683C\u5F0F\uFF1Aam help format");
+}
+function cmdHelp(name, { print, fail }) {
+  if (!name) return print(USAGE), 0;
+  if (name === "format") return print(FORMAT), 0;
+  if (name === "video") return print(VIDEO_FORMAT), 0;
+  if (name === "patch") return print(PATCH_HELP), 0;
+  if (name === "html" || name === "svg") return print(RAW_HELP.replace(/LANG/g, name)), 0;
+  const comp = COMPONENTS.get(name);
+  if (!comp) {
+    fail(`\u2717 \u6CA1\u6709\u7EC4\u4EF6 "${name}"\u3002\u53EF\u7528\uFF1A${[...COMPONENTS.keys()].join(", ")}, html, svg, format, video, patch`);
+    return 2;
+  }
+  print(`${comp.name} \u2014 ${comp.summary}
+
+${comp.syntax}
+
+\u793A\u4F8B\uFF1A
+${comp.example}`);
+  return 0;
+}
+function slug(title) {
+  const s = String(title || "page").trim().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+  return s || "page";
+}
+function stamp(d = /* @__PURE__ */ new Date()) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+function openFile(file) {
+  const [cmd, args] = process.platform === "darwin" ? ["open", [file]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", file]] : ["xdg-open", [file]];
+  try {
+    spawn4(cmd, args, { detached: true, stdio: "ignore" }).on("error", () => {
+    }).unref();
+  } catch {
+  }
+}
+
+// bin/am.js
+main(process.argv.slice(2), { background: true, scriptPath: process.argv[1] }).then(
+  (code) => {
+    process.exitCode = code;
+  },
+  (err) => {
+    process.stderr.write(`\u2717 \u5185\u90E8\u9519\u8BEF\uFF1A${err.stack || err}
+`);
+    process.exitCode = 1;
+  }
+);
+/*! Bundled license information:
+
+@dagrejs/dagre/dist/dagre.esm.js:
+  (*! For license information please see dagre.esm.js.LEGAL.txt *)
+*/

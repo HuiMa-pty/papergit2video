@@ -1,0 +1,13 @@
+{
+  "name": "papergit2video",
+  "owner": { "name": "papergit2video contributors" },
+  "plugins": [
+    {
+      "name": "papergit2video",
+      "source": "./",
+      "description": "Turn research papers and GitHub repos into narrated explainer videos or interactive one-page explainers.",
+      "version": "1.0.0",
+      "category": "productivity"
+    }
+  ]
+}

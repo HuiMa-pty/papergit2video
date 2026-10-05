@@ -1,0 +1,7 @@
+{
+  "name": "papergit2video",
+  "description": "Turn research papers and GitHub repos into narrated explainer videos or interactive one-page explainers. Local TTS, no API keys, CUDA auto-detected.",
+  "version": "1.0.0",
+  "license": "MIT",
+  "keywords": ["explainer-video", "paper", "arxiv", "github", "code", "tts", "kokoro", "education", "video"]
+}
