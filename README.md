@@ -6,8 +6,8 @@ Give your AI coding agent an arXiv link, a PDF, a GitHub repo or a local codebas
 
 Everything runs on your machine: no API keys and no cloud TTS, and the source never leaves your computer.
 
-<p align="center"><img src="docs/demo-video-contact-sheet.png" width="900" alt="Frames from a 10-minute explainer video of a GitHub repo"><br>
-<sub>Frames from a 10-minute expert-level explainer of a GitHub repo, rendered in 6 minutes on one NVIDIA T4.</sub></p>
+<p align="center"><a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/papergit2video-demo.mp4"><img src="docs/demo.gif" width="880" alt="Demo: install, ask in plain words, answer four questions, watch it run"></a><br>
+<sub>How to use it, in 50 seconds (2× speed, no sound). <a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/papergit2video-demo.mp4">Watch the full 3-minute narrated demo</a>, which papergit2video made itself.</sub></p>
 
 ## What you get
 
