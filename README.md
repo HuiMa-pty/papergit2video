@@ -83,10 +83,10 @@ The agent asks four questions (language, style, audience, output folder), then d
 
 ## Requirements
 
-- Linux (tested on Ubuntu, x86-64)
-- Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 22+, ffmpeg with libx264
-- A headless Chromium (setup installs one with Playwright if none is found)
-- Optional: an NVIDIA GPU. Setup then installs CUDA torch and an NVENC-capable ffmpeg.
+- Linux (tested on Ubuntu, x86-64) or macOS (Apple Silicon or Intel; the scripts run on the default bash 3.2)
+- Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 22+, ffmpeg with libx264 (macOS: `brew install ffmpeg`)
+- A headless Chromium. Setup installs one with Playwright if none is found; on macOS an installed Google Chrome also works.
+- Optional: an NVIDIA GPU (Linux). Setup then installs CUDA torch and an NVENC-capable ffmpeg. On macOS everything runs on the CPU.
 
 ## How fast is it?
 

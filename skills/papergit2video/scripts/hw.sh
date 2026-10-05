@@ -6,11 +6,47 @@
 #   AM_CHROME_FLAGS         GPU raster flags for headless Chrome on CUDA machines
 #   HW_SUMMARY              one human-readable line
 # PAPER_VIDEO_GPU=off forces the CPU path. Explicitly set variables are respected.
+#
+# Also defines small portable helpers used by setup.sh and render.sh. They must run on Linux
+# and on macOS, whose default /bin/bash is 3.2 and whose userland is BSD: no nproc, no
+# sha1sum, no GNU-only regex syntax, and Playwright keeps browsers in ~/Library/Caches.
+
+# Number of online CPU cores (nproc is Linux-only).
+cpu_count() {
+    getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4
+}
+
+# SHA-1 of stdin, hex only (sha1sum on Linux, shasum on macOS).
+sha1_of_stdin() {
+    if command -v sha1sum >/dev/null 2>&1; then sha1sum; else shasum -a 1; fi | cut -d' ' -f1
+}
+
+# Absolute path of an existing file (realpath is missing on older macOS).
+abs_path() {
+    echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+}
+
+# First usable Chrome/Chromium: Playwright's copy on Linux or macOS, then a system install.
+find_chrome() {
+    local c
+    for c in \
+        "$(ls -d ~/.cache/ms-playwright/chromium-*/chrome-linux*/chrome 2>/dev/null | sort | tail -1)" \
+        "$(ls -d ~/Library/Caches/ms-playwright/chromium-*/chrome-mac*/*.app/Contents/MacOS/* 2>/dev/null | sort | tail -1)" \
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+        "/Applications/Chromium.app/Contents/MacOS/Chromium" \
+        "$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"; do
+        if [[ -n "$c" && -x "$c" ]]; then
+            echo "$c"
+            return 0
+        fi
+    done
+    return 1
+}
 
 detect_hardware() {
     local venv_py="$PAPER_VIDEO_HOME/tts/.venv/bin/python"
     local cores gpu_name="" cuda=0
-    cores=$(nproc)
+    cores=$(cpu_count)
 
     if [[ "${PAPER_VIDEO_GPU:-auto}" != "off" ]] && nvidia-smi -L >/dev/null 2>&1; then
         gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)

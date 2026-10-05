@@ -8,16 +8,23 @@ SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 VENV="$HOME_DIR/tts/.venv"
 export UV_CACHE_DIR="${UV_CACHE_DIR:-$HOME_DIR/uv-cache}" PAPER_VIDEO_HOME="$HOME_DIR"
 mkdir -p "$HOME_DIR/tts"
+source "$SKILL_DIR/scripts/hw.sh"   # portable helpers (find_chrome, cpu_count) + detect_hardware
 has_gpu=0
 nvidia-smi -L >/dev/null 2>&1 && has_gpu=1
 
 if ! "$VENV/bin/python" -c "import kokoro, jieba" 2>/dev/null; then
     echo "Installing Kokoro TTS into $VENV ..."
     uv venv -q --python 3.12 "$VENV"
-    # The resolver otherwise picks an ancient transformers; CPU torch keeps a GPU-less venv small.
-    uv pip install -q --python "$VENV/bin/python" --index-strategy unsafe-best-match \
-        --extra-index-url https://download.pytorch.org/whl/cpu \
-        "torch==2.5.1+cpu" "transformers>=4.44" "kokoro>=0.9.4" "misaki[zh]" soundfile \
+    # Pin a modern transformers: the resolver otherwise picks an ancient one. On Linux the
+    # "+cpu" torch build keeps a GPU-less venv small; macOS has no "+cpu" build and uses the
+    # standard PyPI wheel instead.
+    torch_args=("torch==2.5.1")
+    if [[ "$(uname -s)" == "Linux" ]]; then
+        torch_args=(--index-strategy unsafe-best-match
+            --extra-index-url https://download.pytorch.org/whl/cpu "torch==2.5.1+cpu")
+    fi
+    uv pip install -q --python "$VENV/bin/python" "${torch_args[@]}" \
+        "transformers>=4.44" "kokoro>=0.9.4" "misaki[zh]" soundfile \
         "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
 fi
 if (( has_gpu )) && ! "$VENV/bin/python" -c "import torch, sys; sys.exit(0 if torch.cuda.is_available() else 1)" 2>/dev/null; then
@@ -43,16 +50,19 @@ if (( has_gpu )) && [[ "$encoders" != *h264_nvenc* ]]; then
     hash -r
     encoders=$(ffmpeg -hide_banner -encoders 2>/dev/null || true)
 fi
-[[ "$encoders" == *libx264* ]] \
-    && echo "ok  ffmpeg with libx264: $(command -v ffmpeg)" \
-    || echo "MISSING ffmpeg with libx264 (needed for MP4). Install a static build and put it on PATH."
+if [[ "$encoders" == *libx264* ]]; then
+    echo "ok  ffmpeg with libx264: $(command -v ffmpeg)"
+elif [[ "$(uname -s)" == "Darwin" ]]; then
+    echo "MISSING ffmpeg with libx264 (needed for MP4). On macOS run: brew install ffmpeg"
+else
+    echo "MISSING ffmpeg with libx264 (needed for MP4). Install a static build and put it on PATH."
+fi
 
-find_chrome() { ls -d ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1; }
-CHROME="${AM_CHROME:-$(find_chrome)}"
+CHROME="${AM_CHROME:-$(find_chrome || true)}"
 if [[ ! -x "$CHROME" ]] && command -v npx >/dev/null; then
     echo "Installing a headless Chromium for frame capture (npx playwright install chromium) ..."
     npx -y playwright install chromium >/dev/null
-    CHROME=$(find_chrome)
+    CHROME=$(find_chrome || true)
 fi
 [[ -x "$CHROME" ]] && echo "ok  chrome: $CHROME" \
     || echo "MISSING Chrome/Chromium (needed for MP4). Set AM_CHROME, or install Node.js and re-run setup."
@@ -61,6 +71,5 @@ command -v node >/dev/null && echo "ok  node: $(node --version)" || echo "MISSIN
 AM="$SKILL_DIR/vendor/am/am.mjs"
 [[ -f "$AM" ]] && echo "ok  am CLI (vendored): $AM" || echo "MISSING vendored am CLI: $AM"
 
-source "$SKILL_DIR/scripts/hw.sh"
 detect_hardware
 echo "ok  hardware plan: $HW_SUMMARY"

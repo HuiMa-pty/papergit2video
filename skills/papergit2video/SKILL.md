@@ -81,7 +81,7 @@ bash $S/render.sh page <slug>_page.md $W   # interactive page: seconds
 | Frame drawing (headless Chrome, parallel workers) | GPU raster via ANGLE EGL, one worker per core | software raster, cores ÷ 2 workers |
 | Encoding | `h264_nvenc`, proven by a test encode | `libx264` |
 
-`setup.sh` installs CUDA torch and an NVENC-capable ffmpeg when it finds a GPU. Overrides: `PAPER_VIDEO_GPU=off` forces CPU, and `AM_EXPORT_WORKERS`, `AM_EXPORT_ENCODER`, `PAPER_VIDEO_TTS_DEVICE` and `AM_CHROME_FLAGS` each override one stage. Unchanged narration lines are cached, so edits re-render faster.
+`setup.sh` installs CUDA torch and an NVENC-capable ffmpeg when it finds a GPU. On macOS there is no CUDA, so every stage takes the CPU path; if `setup.sh` reports ffmpeg missing, run `brew install ffmpeg`. The scripts are written for macOS's default bash 3.2 and BSD tools (no `mapfile`, `nproc`, `sha1sum` or GNU-only regex). Overrides: `PAPER_VIDEO_GPU=off` forces CPU, and `AM_EXPORT_WORKERS`, `AM_EXPORT_ENCODER`, `PAPER_VIDEO_TTS_DEVICE` and `AM_CHROME_FLAGS` each override one stage. Unchanged narration lines are cached, so edits re-render faster.
 
 ## Step 5: Verify and report
 

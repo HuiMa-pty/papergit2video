@@ -15,7 +15,8 @@ unset ELEVENLABS_API_KEY ELEVENLABS_VOICE_ID
 export AM_HOME="$PAPER_VIDEO_HOME/am"
 AM="$SKILL_DIR/vendor/am/am.mjs"  # vendored, patched copy (see vendor/am/SOURCE.txt)
 [[ -f "$AM" ]] || { echo "missing $AM; reinstall the skill" >&2; exit 1; }
-export AM_CHROME="${AM_CHROME:-$(ls -d ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1)}"
+source "$SKILL_DIR/scripts/hw.sh"   # portable helpers + detect_hardware
+export AM_CHROME="${AM_CHROME:-$(find_chrome || true)}"
 
 # A page draft declares `template: sheet` or `template: doc`; anything else is a video draft.
 is_page_draft() { grep -q -E '^template: *(sheet|doc)' "$1"; }
@@ -42,8 +43,10 @@ if [[ "$mode" == "page" ]]; then
     name=$(basename "$draft" .md)
     node "$AM" render "$draft" --no-open -o "$out/$name.html"
     # A tall screenshot for visual verification (the page itself is the deliverable).
-    "$AM_CHROME" --headless=new --hide-scrollbars --window-size=1600,2600 \
-        --screenshot="$out/$name.png" "file://$(realpath "$out/$name.html")" >/dev/null 2>&1 || true
+    if [[ -n "$AM_CHROME" ]]; then
+        "$AM_CHROME" --headless=new --hide-scrollbars --window-size=1600,2600 \
+            --screenshot="$out/$name.png" "file://$(abs_path "$out/$name.html")" >/dev/null 2>&1 || true
+    fi
     echo "PAGE_HTML=$out/$name.html"
     echo "SCREENSHOT=$out/$name.png"
     exit 0
@@ -58,14 +61,13 @@ export PATH="$SKILL_DIR/bin:$PATH"
 export TMPDIR="$PAPER_VIDEO_HOME/tmp"
 mkdir -p "$TMPDIR"
 
-source "$SKILL_DIR/scripts/hw.sh"
 detect_hardware
 echo "hardware: $HW_SUMMARY"
 
 # am caches narration by line text only, so a voice or TTS change would replay stale audio.
 # Wipe the cache whenever the TTS script or voice settings change.
 tts_cache="$AM_HOME/cache/tts"
-voice_sig=$( (cat "$SKILL_DIR/scripts/kokoro_tts.py"; env | grep '^PAPER_VIDEO_\(VOICE\|SPEED\)' | sort || true) | sha1sum | cut -d' ' -f1)
+voice_sig=$( (cat "$SKILL_DIR/scripts/kokoro_tts.py"; env | grep -E '^PAPER_VIDEO_(VOICE|SPEED)' | sort || true) | sha1_of_stdin)
 if [[ "$(cat "$tts_cache/.voice-sig" 2>/dev/null)" != "$voice_sig" ]]; then
     rm -rf "$tts_cache"
     mkdir -p "$tts_cache"
@@ -99,12 +101,12 @@ fi
 echo "render time: $(( $(date +%s) - start )) s"
 result=$(grep -v '导出 MP4：' "$log")
 # `am` prints "✓ <path>" for the HTML player and "✓ <path>（Ns 导出）" for the MP4.
-mapfile -t made < <(echo "$result" | sed -n 's/^✓ //p' | sed 's/（.*//')
 html=""; mp4=""
-for f in "${made[@]}"; do
+# A while-read loop, not mapfile: mapfile needs bash 4, and macOS ships bash 3.2.
+while IFS= read -r f; do
     [[ "$f" == *.html ]] && html=$f
     [[ "$f" == *.mp4 ]] && mp4=$f
-done
+done < <(echo "$result" | sed -n 's/^✓ //p' | sed 's/（.*//')
 [[ -n "$mp4" && -f "$mp4" ]] || { echo "MP4 export failed; see output above" >&2; exit 1; }
 
 name=$(basename "$draft" .md)
