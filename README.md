@@ -29,6 +29,8 @@ The video below is what papergit2video made in the demo session above, from one 
 <p align="center"><a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/example-attention-is-all-you-need.mp4"><img src="docs/example-attention.gif" width="800" alt="Explainer video of Attention Is All You Need: a diagram of scaled dot-product attention"></a><br>
 <sub><a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/example-attention-is-all-you-need.mp4">Watch the full narrated video (MP4, about 1 minute)</a></sub></p>
 
+**What it cost:** that session made 15 Claude Opus 5.5 API calls in about 2 minutes. That's 32 uncached input tokens, 43,839 cache-write tokens, 644,789 cache-read tokens and 5,906 output tokens, or **about $0.47** at list prices ($4 input, $5 cache write, $0.20 cache read, $20 output per million tokens). Narration, drawing and encoding run on your machine and use no API tokens. Longer videos and repos cost more.
+
 ## Install
 
 Pick your app. Every option installs the same skill.
