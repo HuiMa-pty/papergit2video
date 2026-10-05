@@ -22,6 +22,13 @@ Everything runs on your machine: no API keys and no cloud TTS, and the source ne
 | **Privacy** | Local neural TTS ([Kokoro](https://huggingface.co/hexgrad/Kokoro-82M)); nothing is uploaded |
 | **Speed** | NVIDIA GPU detected automatically: narration, frame drawing and encoding all run on CUDA |
 
+## Example output
+
+The video below is what papergit2video made in the demo session above, from one prompt: "Make a one-minute explainer video of https://arxiv.org/abs/1706.03762" (English, 3Blue1Brown dark, college level).
+
+<p align="center"><a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/example-attention-is-all-you-need.mp4"><img src="docs/example-attention.gif" width="800" alt="Explainer video of Attention Is All You Need: a diagram of scaled dot-product attention"></a><br>
+<sub><a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/example-attention-is-all-you-need.mp4">Watch the full narrated video (MP4, about 1 minute)</a></sub></p>
+
 ## Install
 
 Pick your app. Every option installs the same skill.
