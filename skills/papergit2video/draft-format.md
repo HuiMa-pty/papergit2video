@@ -24,6 +24,9 @@ A -> B: label
 
 - `## ` starts a scene. Each scene holds ONE visual (a component, a table or a list) and then 3–6 `>` lines.
 - Beat N reveals step N. In flow, sequence and tree, each source line is one step. In timeline, limits, tables and lists, each item or row is one step. When there are more narration lines than steps, the extra lines come first as an intro.
+- **Scene titles:** a single capital letter plus a space at the start of a `## ` heading is read as the scene's ID letter, so `## A warning sign` shows as "warning sign". Start the title with another word.
+- **Flow node names:** in `A -> B: label`, the text after the colon is the edge label. Only the target may carry it. A line that starts with `B: label -> C` creates a new, unconnected node named "B: label". Refer to existing nodes by their bare name: `B -> C`.
+- **Wide diagrams shrink:** a flow with five or more nodes in a row, or a `tree` with four or more children drawn as an org chart, gets scaled down until its text is hard to read. Use `flow` (top to bottom) or `tree list` for those.
 - `[Name]` must match a node or participant label exactly. Nodes with the same name in adjacent scenes animate between positions.
 
 ## Components
