@@ -35,6 +35,11 @@ The video below is what papergit2video made in the demo session above, from one 
 
 Pick the elementary-school audience and the video turns into a cartoon: a sky background, vivid colored boxes, emoji pictures, speech-bubble subtitles, a thinking robot guide, and a young female narrator speaking a little slower. The script tells the paper as a short story with one idea per scene.
 
+Example: the same paper as above, "Attention Is All You Need", for ages 6–10. Robot Bit explains why old translators were slow, plays a "who is *it*?" game, and meets eight little attention detectives.
+
+<p align="center"><a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/example-attention-kids.mp4"><img src="docs/example-attention-kids.gif" width="800" alt="Cartoon explainer for kids: a sky background, colorful boxes with emoji, a robot guide and speech-bubble subtitles"></a><br>
+<sub><a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/example-attention-kids.mp4">Watch the full narrated cartoon video (MP4, about 2 minutes)</a></sub></p>
+
 ## Install
 
 Pick your app. Every option installs the same skill.
