@@ -34,6 +34,12 @@ if (( has_gpu )) && ! "$VENV/bin/python" -c "import torch, sys; sys.exit(0 if to
 fi
 if [[ "${1:-}" == "--ja" ]]; then
     uv pip install -q --python "$VENV/bin/python" "misaki[ja]"
+    # The Japanese text front end needs the UniDic dictionary (about 770 MB unpacked), which
+    # the unidic package downloads separately. Without it every Japanese line fails.
+    if ! "$VENV/bin/python" -c "import unidic, os, sys; sys.exit(0 if os.path.exists(os.path.join(unidic.DICDIR, 'mecabrc')) else 1)" 2>/dev/null; then
+        echo "Downloading the UniDic dictionary for Japanese (about 530 MB) ..."
+        "$VENV/bin/python" -m unidic download
+    fi
 fi
 echo "ok  kokoro venv: $VENV"
 

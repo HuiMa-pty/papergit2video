@@ -15,9 +15,9 @@ Everything runs on your machine: no API keys and no cloud TTS, and the source ne
 |---|---|
 | **Sources** | arXiv papers, PDFs, GitHub repositories, local source code |
 | **Output** | Narrated 1080p MP4 with subtitles, plus an HTML player, or an interactive one-page explainer |
-| **Styles** | 3Blue1Brown-style dark, Blueprint, Clean cards, or Interactive page |
-| **Audience** | Middle school, high school, college, expert/researcher |
-| **Languages** | English, Mandarin Chinese, Japanese (male narrator; English terms read correctly inside Chinese) |
+| **Styles** | 3Blue1Brown-style dark, Blueprint, Clean cards, Interactive page, and Cartoon for young kids |
+| **Audience** | Elementary school, middle school, high school, college, expert/researcher |
+| **Languages** | English, Mandarin Chinese, Japanese (male narrator, or a young female narrator for elementary-school videos; English terms read correctly inside Chinese) |
 | **Diagrams** | Flowcharts, sequence diagrams, trees, timelines, bar charts, tables, with camera zoom on what the narrator names |
 | **Privacy** | Local neural TTS ([Kokoro](https://huggingface.co/hexgrad/Kokoro-82M)); nothing is uploaded |
 | **Speed** | NVIDIA GPU detected automatically: narration, frame drawing and encoding all run on CUDA |
@@ -30,6 +30,10 @@ The video below is what papergit2video made in the demo session above, from one 
 <sub><a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/example-attention-is-all-you-need.mp4">Watch the full narrated video (MP4, about 1 minute)</a></sub></p>
 
 **What it cost:** that session made 15 Claude Opus 5.5 API calls in about 2 minutes. That's 32 uncached input tokens, 43,839 cache-write tokens, 644,789 cache-read tokens and 5,906 output tokens, or **about $0.47** at list prices ($4 input, $5 cache write, $0.20 cache read, $20 output per million tokens). Narration, drawing and encoding run on your machine and use no API tokens. Longer videos and repos cost more.
+
+### Elementary school: cartoon videos
+
+Pick the elementary-school audience and the video turns into a cartoon: a sky background, vivid colored boxes, emoji pictures, speech-bubble subtitles, a thinking robot guide, and a young female narrator speaking a little slower. The script tells the paper as a short story with one idea per scene.
 
 ## Install
 

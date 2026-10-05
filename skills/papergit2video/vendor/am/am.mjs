@@ -4690,10 +4690,108 @@ ${RUNTIME_JS}</script>
 `;
 }
 
+// ── papergit2video patch: "cartoon" video theme (for elementary-school audiences) ─────────────
+// Vivid colors that cycle per diagram step, thick rounded outlines with a sticker shadow, a sky
+// background with clouds, speech-bubble subtitles, a thinking robot mascot in the corner, and the
+// bundled rounded font Fredoka (SIL OFL, vendor/fonts/), embedded so frames look the same anywhere.
+var CARTOON_INK = "#1f2440";
+var CARTOON_PALETTE = [
+  ["#FFD166", "#FFF4CC"],  // sunshine yellow
+  ["#4CC9F0", "#DDF5FD"],  // sky blue
+  ["#FF8FAB", "#FFE3EA"],  // bubblegum pink
+  ["#5BE08A", "#E0FBEA"],  // mint green
+  ["#B983FF", "#F0E4FF"]   // grape purple
+];
+var CARTOON_MASCOT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 240'>
+<g stroke='${CARTOON_INK}' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'>
+<ellipse cx='148' cy='46' rx='46' ry='36' fill='#ffffff'/>
+<circle cx='104' cy='98' r='9' fill='#ffffff'/><circle cx='88' cy='114' r='5' fill='#ffffff'/>
+<line x1='75' y1='112' x2='75' y2='90'/><circle cx='75' cy='82' r='10' fill='#FFD166'/>
+<rect x='20' y='112' width='110' height='86' rx='24' fill='#4CC9F0'/>
+<circle cx='52' cy='148' r='14' fill='#ffffff'/><circle cx='98' cy='148' r='14' fill='#ffffff'/>
+<path d='M60 176 Q75 186 90 174' fill='none'/>
+<rect x='40' y='198' width='70' height='38' rx='14' fill='#FF8FAB'/>
+<path d='M110 210 Q140 200 128 178' fill='none'/>
+</g>
+<circle cx='57' cy='142' r='6' fill='${CARTOON_INK}'/><circle cx='103' cy='142' r='6' fill='${CARTOON_INK}'/>
+<circle cx='38' cy='170' r='6' fill='#FF8FAB' opacity='0.8'/><circle cx='112' cy='170' r='6' fill='#FF8FAB' opacity='0.8'/>
+<text x='148' y='62' text-anchor='middle' font-family='Arial Rounded MT Bold, Arial, sans-serif' font-weight='900' font-size='46' fill='#FF4F81'>?</text>
+</svg>`;
+function cartoonCss() {
+  let font = "";
+  try {
+    const ttf = readFileSync4(new URL("../fonts/Fredoka.ttf", import.meta.url));
+    font = `@font-face { font-family: "PG2V Fredoka"; src: url(data:font/ttf;base64,${ttf.toString("base64")}) format("truetype"); font-weight: 300 700; }\n`;
+  } catch {
+  }
+  const T = 'html[data-video][data-theme="cartoon"]';
+  const mascot = encodeURIComponent(CARTOON_MASCOT.replace(/\n/g, ""));
+  let css = font + `${T} {
+  --bg: #fff8e7; --paper: #ffffff; --ink: ${CARTOON_INK}; --ink-2: #4a4f7a; --ink-3: #8a8fb5;
+  --line: ${CARTOON_INK}; --line-2: #c9d3ff; --fill: #ffffff;
+  --accent: #FF4F81; --accent-bg: #FFE3EA; --ok: #20B26B; --ok-bg: #E0FBEA; --err: #FF5A5F; --err-bg: #FFE3E3;
+  --warn: #FFB400; --warn-bg: #FFF4CC; --head-bg: #FF4F81; --head-fg: #ffffff;
+  --radius: 18px; --bw: 3px; --shadow: 5px 5px 0 ${CARTOON_INK};
+  --font-sans: "PG2V Fredoka", "Fredoka", "Nunito", "Noto Sans CJK SC", "PingFang SC", "Noto Color Emoji", sans-serif;
+  --head-font: var(--font-sans); --v-title-font: var(--font-sans);
+  --v-stage: radial-gradient(ellipse 150px 46px at 80% 15%, #ffffff 92%, transparent 95%),
+             radial-gradient(ellipse 95px 34px at 87% 11%, #ffffff 92%, transparent 95%),
+             linear-gradient(180deg, #BDE8FF 0%, #E6F7FF 60%, #FFF6D8 100%);
+  --v-cap-fg: ${CARTOON_INK}; --v-cap-bg: #ffffff; --v-cap-border: ${CARTOON_INK};
+  --v-glow: drop-shadow(0 0 10px rgba(255, 79, 129, 0.6));
+}
+${T} body, ${T} .amv-stage { font-family: var(--font-sans); }
+${T} .amv-stage::after {
+  content: ""; position: absolute; left: 16px; bottom: 14px; width: 190px; height: 228px; pointer-events: none;
+  background: url("data:image/svg+xml;utf8,${mascot}") no-repeat center / contain;
+}
+${T} .amv-scene-head { border: 3px solid var(--ink); border-radius: 999px; box-shadow: var(--shadow); background: #ffffff; }
+${T} .amv-scene-n { border-radius: 999px; margin: 8px 0 8px 10px; min-width: 48px; background: var(--accent); font-weight: 700; }
+${T} .amv-scene-title { font-weight: 700; font-size: 36px; }
+${T} .amv-scene-meta { display: none; }
+${T} .amv-title { font-weight: 700; color: var(--accent); text-shadow: 5px 5px 0 #FFD166; }
+${T} .amv-subtitle { color: var(--ink); font-weight: 600; }
+${T} .amv-caption span { border-radius: 28px; border-width: 3px; box-shadow: var(--shadow); font-weight: 600; }
+${T} .am-node-shape { stroke: var(--ink); stroke-width: 3.5; }
+${T} .am-node text { fill: var(--ink); font-weight: 700; }
+${T} .am-edge path, ${T} .am-edge line { stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+${T} .am-edge-label text { fill: var(--ink-2) !important; font-weight: 600; }
+${T} .am-tree-box { border: 3px solid var(--ink); border-radius: var(--radius); box-shadow: var(--shadow); font-weight: 700; }
+${T} .am-tree-box--root { background: var(--accent) !important; color: #ffffff; }
+${T} .am-tree-list li { border: 3px solid var(--ink); border-radius: 16px; box-shadow: 4px 4px 0 var(--ink); padding: 6px 16px; margin: 0 0 12px 0; list-style: none; }
+${T} .am-tree-label { font-weight: 700; }
+${T} .amv-fit table { border-collapse: separate; border-spacing: 0 8px; }
+${T} .amv-fit th { color: var(--ink-2); font-weight: 700; }
+${T} .amv-fit tbody td { border-top: 3px solid var(--ink); border-bottom: 3px solid var(--ink); font-weight: 600; }
+${T} .amv-fit tbody td:first-child { border-left: 3px solid var(--ink); border-radius: 16px 0 0 16px; }
+${T} .amv-fit tbody td:last-child { border-right: 3px solid var(--ink); border-radius: 0 16px 16px 0; }
+${T} .am-lim-track { border: 3px solid var(--ink); border-radius: 999px; height: 22px; }
+${T} .am-lim-fill { border-radius: 999px; }
+${T} .am-lim-ticks, ${T} .am-lim-mark { display: none; }  /* a scale and a "max" marker confuse young kids */
+${T} .am-callout { border: 3px solid var(--ink); border-radius: var(--radius); box-shadow: var(--shadow); background: #FFF4CC; }
+${T} .am-tl-dot { width: 18px; height: 18px; border-width: 3px; background: #FFD166; }
+`;
+  // Colors cycle by the last digit of each element's step number, so neighbors always differ.
+  for (let d = 0; d <= 9; d++) {
+    const [vivid, pastel] = CARTOON_PALETTE[d % CARTOON_PALETTE.length];
+    css += `${T} .am-node[data-step$="${d}"] .am-node-shape { fill: ${vivid}; }
+${T} .am-tree-box[data-step$="${d}"]:not(.am-tree-box--root) { background: ${vivid}; }
+${T} .am-tree-list li[data-step$="${d}"] { background: ${pastel}; }
+`;
+  }
+  CARTOON_PALETTE.forEach(([vivid, pastel], i) => {
+    css += `${T} .amv-fit tbody tr:nth-child(5n+${i + 1}) td { background: ${pastel}; }
+${T} .am-lim:nth-child(5n+${i + 1} of .am-lim) .am-lim-fill { background: ${vivid}; }
+`;
+  });
+  return css;
+}
+// ── end of papergit2video cartoon patch ─────────────────────────────────────────────────────────
+
 // src/video/script.js
 var NARRATION = /^\s*>\s?(.*)$/;
 var FOCUS = /\[([^\]\n]+)\]/g;
-var VIDEO_THEMES = Object.freeze([...CHOICES.theme, "3b1b"]);
+var VIDEO_THEMES = Object.freeze([...CHOICES.theme, "3b1b", "cartoon"]);
 function parseVideo(source, { defaults: defaults2 = {} } = {}) {
   const doc2 = parseDoc(source, { defaults: { ...defaults2, template: "video" }, choices: { theme: VIDEO_THEMES } });
   const intro = splitNarration(doc2.intro);
@@ -5106,6 +5204,7 @@ function shell2({ meta, lang, scenesHtml, data, wav: wav2, source }) {
 <style>
 ${pageCss()}
 ${VIDEO_CSS}
+${meta.theme === "cartoon" ? cartoonCss() : ""}
 </style>
 </head>
 <body>

@@ -9,5 +9,8 @@ Local patches, marked "papergit2video patch" in am.mjs:
 - Layout (VIDEO_JS / VIDEO_CSS): scenes fit inside .amv-body (y 160..850, 1600x650 content box),
   which ends above the two-line subtitle box. .amv-fit is widened to its real content width
   before scaling, so wide diagrams get equal left and right margins. The camera SAFE box matches.
+- Cartoon video theme (`theme: cartoon`, cartoonCss): vivid per-step colors, sticker outlines,
+  sky background, speech-bubble subtitles, a robot mascot (inline SVG) and the bundled Fredoka font
+  (../fonts/, SIL OFL), embedded into the page as a data URI. Bar-chart scales are hidden.
 - Output credit: OUTPUT_BRAND (AM_BRAND, default "Paper Explainer").
 - Default data folder: ~/.papergit2video/am. Update checks are disabled.

@@ -64,15 +64,22 @@ mkdir -p "$TMPDIR"
 detect_hardware
 echo "hardware: $HW_SUMMARY"
 
-# am caches narration by line text only, so a voice or TTS change would replay stale audio.
-# Wipe the cache whenever the TTS script or voice settings change.
-tts_cache="$AM_HOME/cache/tts"
-voice_sig=$( (cat "$SKILL_DIR/scripts/kokoro_tts.py"; env | grep -E '^PAPER_VIDEO_(VOICE|SPEED)' | sort || true) | sha1_of_stdin)
-if [[ "$(cat "$tts_cache/.voice-sig" 2>/dev/null)" != "$voice_sig" ]]; then
-    rm -rf "$tts_cache"
-    mkdir -p "$tts_cache"
-    echo "$voice_sig" > "$tts_cache/.voice-sig"
+# Elementary-school videos use the cartoon theme and a young female narrator, a little slower.
+# Kokoro has no child voices; these are its most youthful-sounding ones. Explicit
+# PAPER_VIDEO_VOICE_* / PAPER_VIDEO_SPEED settings still win.
+if grep -q -E '^theme: *cartoon' "$draft"; then
+    export PAPER_VIDEO_VOICE_EN="${PAPER_VIDEO_VOICE_EN:-af_heart}"
+    export PAPER_VIDEO_VOICE_ZH="${PAPER_VIDEO_VOICE_ZH:-zf_001}"
+    export PAPER_VIDEO_VOICE_JA="${PAPER_VIDEO_VOICE_JA:-jf_alpha}"
+    export PAPER_VIDEO_SPEED="${PAPER_VIDEO_SPEED:-0.95}"
 fi
+
+# am caches narration by line text only, so a different voice must not replay cached audio.
+# Each voice setting (and TTS script version) gets its own am home, and thus its own cache:
+# switching between kid and adult videos never re-voices lines that were already recorded.
+voice_sig=$( (cat "$SKILL_DIR/scripts/kokoro_tts.py"; env | grep -E '^PAPER_VIDEO_(VOICE|SPEED)' | sort || true) | sha1_of_stdin)
+export AM_HOME="$PAPER_VIDEO_HOME/am/voice-${voice_sig:0:12}"
+mkdir -p "$AM_HOME"
 
 # Warm TTS server: loads Kokoro once (on CUDA when available) for the whole render.
 lang=$(sed -n '/^---$/,/^---$/s/^lang: *\([a-z]*\).*/\1/p' "$draft" | head -1)

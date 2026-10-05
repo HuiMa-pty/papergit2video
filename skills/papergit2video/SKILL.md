@@ -19,10 +19,10 @@ Before downloading or reading anything, ask these four questions together, in on
 |---|---|---|
 | Language | Narration and on-screen language? | English (American male voice) · Mandarin Chinese (male voice) · Japanese (male voice) |
 | Style | Visual style? | 3Blue1Brown dark video (`theme: 3b1b`) · Blueprint video (`theme: blueprint`) · Clean cards video (`theme: shadcn`) · Interactive page: a one-page visual explainer to read and click through, no narration (`template: sheet`) |
-| Audience | Audience knowledge level? | Middle school · High school · College · Expert/researcher |
+| Audience | Audience knowledge level? | Elementary school (ages 6–10, cartoon video) · Middle school · High school · College or expert |
 | Output | Where should the video and its files go? | `$PAPER_VIDEO_HOME/<slug>/` (Recommended; default `~/.papergit2video/<slug>/`) · `./papergit2video/<slug>/` in the current directory. "Other" accepts any path. |
 
-Show the resolved paths in the Output options (expand `$PAPER_VIDEO_HOME` and `<slug>`). Skip only the questions the user already answered in the request. If they pick **Interactive page**, the language and audience answers still apply, but there is no voice and Step 4 uses `page` mode.
+Show the resolved paths in the Output options (expand `$PAPER_VIDEO_HOME` and `<slug>`). Skip only the questions the user already answered in the request. There are five audience levels, but structured question tools often allow only four options: if the user picks **College or expert**, ask one follow-up, "College or expert/researcher?". If the tool allows five options, list all five instead. **Elementary school always uses `theme: cartoon`,** whatever the Style answer, because young kids need the cartoon look; say so when you confirm the plan. If they pick **Interactive page**, the language and audience answers still apply, but there is no voice and Step 4 uses `page` mode.
 
 ## Step 2: Get the source
 
@@ -44,6 +44,7 @@ Save the draft in the work dir. Its file name becomes the MP4 name, so use the s
 
 | Audience | Include | Avoid |
 |---|---|---|
+| Elementary school | a story told by a friendly guide ("Hi friends!"), comparisons to toys, games, food and school; an emoji on every node and list item; one idea per scene; sentences of 12 words or fewer; only small, round numbers ("about 2,700"); 8–10 scenes of 3–4 lines | jargon, formulas, tables over 3 rows, bar charts with a big "max", scary details (frame risks gently: "grown-ups are making rules to keep it safe") |
 | Middle school | everyday analogies, every term defined, rounded numbers | formulas, jargon |
 | High school | analogies plus one simple formula in words | dense tables |
 | College | formal definitions, equations in plain notation, method details, a scene on what is new vs prior work | hand-waving |
@@ -91,7 +92,7 @@ Interactive page: read the `SCREENSHOT` PNG and confirm the panels render. Repor
 
 ## Voices
 
-Defaults: `am_michael` (en), `zm_010` (zh, Kokoro-82M-v1.1-zh), `jm_kumo` (ja). Override with `PAPER_VIDEO_VOICE_EN/_ZH/_JA`, and set speed with `PAPER_VIDEO_SPEED`. Changing a voice wipes the narration cache automatically.
+Defaults: `am_michael` (en), `zm_010` (zh, Kokoro-82M-v1.1-zh), `jm_kumo` (ja). **Cartoon (elementary) videos** switch automatically to young female narrators at 0.95× speed: `af_heart` (en), `zf_001` (zh), `jf_alpha` (ja). Kokoro has no child voices; these are its most youthful-sounding ones. Each voice setting keeps its own narration cache, so switching between kid and adult videos never re-records unchanged lines. Japanese needs `setup.sh --ja`, which also downloads the UniDic dictionary. Override with `PAPER_VIDEO_VOICE_EN/_ZH/_JA`, and set speed with `PAPER_VIDEO_SPEED`. Changing a voice wipes the narration cache automatically.
 
 English terms inside Chinese lines go through the English G2P. If a term is misread, add its phonemes to `PHONEME_LEXICON` in `scripts/kokoro_tts.py`. In Chinese narration, write versions as `Qwen 3.5`, not `Qwen3.5-9B`, and write large numbers as words (`3万2千`).
 

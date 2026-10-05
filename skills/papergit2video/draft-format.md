@@ -8,7 +8,7 @@ Reference for the bundled CLI (`vendor/am/am.mjs`). Full help for any component:
 ---
 title: Title shown on the opening card
 subtitle: One line under the title
-theme: blueprint          # blueprint | shadcn | 3b1b
+theme: blueprint          # blueprint | shadcn | 3b1b | cartoon (elementary school)
 lang: en                  # en | zh | ja (sets UI text, STE rules and the TTS voice)
 source: where the facts come from
 ---
@@ -39,6 +39,15 @@ A -> B: label
 | `timeline [h\|v]` | `When \| Title \| note`, `*When` highlights. More than 6 items are drawn vertically. |
 | `limits` | `Label \| value / max \| unit \| note`, or `Label \| max 20 \| unit`. A value above the max is shown in red. |
 | Markdown table | Plain pipe table. A status column can use `ok` / `no` / `warn` badges. |
+
+## Cartoon theme (elementary school)
+
+`theme: cartoon` gives a sky background, vivid colors that change from box to box, thick rounded outlines, speech-bubble subtitles, a rounded font and a thinking robot in the bottom-left corner. It also switches the narrator to a young female voice.
+
+- Put one emoji at the start of every node and list label: `(🤖 Robot) -> 🧠 Brain: learns`. Emoji are the cartoon pictures; Chrome draws them in color.
+- Keep tables to 3 rows or fewer, and give each row an emoji.
+- Prefer a table over `limits` for numbers. If you use `limits`, the scale and marker are hidden, but the label still shows "value / max", so set the max to a round reference the kids know (for example the top players' score).
+- Open with the guide talking to the kids ("Hi friends!") and close with one sentence they can repeat at home.
 
 ## Style check (STE), applied to narration and labels
 
