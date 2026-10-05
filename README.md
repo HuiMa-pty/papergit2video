@@ -6,8 +6,8 @@ Give your AI coding agent an arXiv link, a PDF, a GitHub repo or a local codebas
 
 Everything runs on your machine: no API keys and no cloud TTS, and the source never leaves your computer.
 
-<p align="center"><a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/papergit2video-demo.mp4"><img src="docs/demo.gif" width="880" alt="Demo: install, ask in plain words, answer four questions, watch it run"></a><br>
-<sub>How to use it, in 50 seconds (2× speed, no sound). <a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/papergit2video-demo.mp4">Watch the full 3-minute narrated demo</a>, which papergit2video made itself.</sub></p>
+<p align="center"><a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/papergit2video-demo.mp4"><img src="docs/demo.gif" width="880" alt="A real Claude Code session: the prompt, the four-question form, the render, and the result"></a><br>
+<sub>A real Claude Code session, with long pauses shortened: one prompt, four questions, and a narrated video in about two minutes on one GPU. <a href="https://github.com/HuiMa-pty/papergit2video/releases/download/v1.0.0/papergit2video-demo.mp4">Watch it as an MP4</a>, ending with a clip of the video it made.</sub></p>
 
 ## What you get
 
