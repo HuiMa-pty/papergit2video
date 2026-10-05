@@ -92,7 +92,7 @@ Interactive page: read the `SCREENSHOT` PNG and confirm the panels render. Repor
 
 ## Voices
 
-Defaults: `am_michael` (en), `zm_010` (zh, Kokoro-82M-v1.1-zh), `jm_kumo` (ja). **Cartoon (elementary) videos** switch automatically to young female narrators at 0.95× speed: `af_heart` (en), `zf_001` (zh), `jf_alpha` (ja). Kokoro has no child voices; these are its most youthful-sounding ones. Each voice setting keeps its own narration cache, so switching between kid and adult videos never re-records unchanged lines. Japanese needs `setup.sh --ja`, which also downloads the UniDic dictionary. Override with `PAPER_VIDEO_VOICE_EN/_ZH/_JA`, and set speed with `PAPER_VIDEO_SPEED`. Changing a voice wipes the narration cache automatically.
+Defaults: `am_michael` (en), `zm_010` (zh, Kokoro-82M-v1.1-zh), `jm_kumo` (ja). **Cartoon (elementary) videos** switch automatically to young female narrators at 0.95× speed: `af_heart` (en), `zf_001` (zh), `jf_alpha` (ja). Kokoro has no child voices; these are its most youthful-sounding ones. Each voice setting keeps its own narration cache, so switching between kid and adult videos never re-records unchanged lines. Japanese needs `setup.sh --ja`, which also downloads the UniDic dictionary. Override with `PAPER_VIDEO_VOICE_EN/_ZH/_JA`, and set speed with `PAPER_VIDEO_SPEED`.
 
 English terms inside Chinese lines go through the English G2P. If a term is misread, add its phonemes to `PHONEME_LEXICON` in `scripts/kokoro_tts.py`. In Chinese narration, write versions as `Qwen 3.5`, not `Qwen3.5-9B`, and write large numbers as words (`3万2千`).
 
