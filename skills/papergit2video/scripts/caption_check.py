@@ -1,4 +1,5 @@
-"""Warn about narration lines whose subtitle would wrap past two lines.
+"""Warn about narration lines whose subtitle would wrap past two lines, and scene titles that
+start with a single capital letter (read as the scene ID).
 
 The video layout keeps diagrams above a two-line subtitle box (1500 px wide, 38 px font). A
 longer beat grows the box upward into the diagram. Limits are measured on the 1920x1080
@@ -32,6 +33,12 @@ def main() -> None:
         text = re.sub(r"\[([^\]]+)\]", r"\1", line[2:].strip())
         if caption_width(text) > MAX_LATIN_CHARS:
             too_long.append((number, text))
+    # A single capital letter plus a space at the start of a scene title is read as the
+    # scene's ID letter, so "## A team ..." would display as "team ...".
+    for number, line in enumerate(lines, start=1):
+        if re.match(r"^## [A-Z] ", line):
+            print(f"  L{number} [title] the leading '{line[3]}' is read as the scene ID and "
+                  f"disappears from the title; start with another word: {line[3:60]}")
     for number, text in too_long:
         print(f"  L{number} [caption] subtitle wraps past 2 lines and covers the diagram; "
               f"split it into two '>' lines: {text[:60]}...")
