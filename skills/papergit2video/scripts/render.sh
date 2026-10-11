@@ -119,9 +119,15 @@ done < <(echo "$result" | sed -n 's/^✓ //p' | sed 's/（.*//')
 name=$(basename "$draft" .md)
 cp "$html" "$out/$name.html"
 final="$out/$name.mp4"
+# MP4 chapter markers, one per scene, from the player's timeline, so players (VLC, QuickTime,
+# IINA, mpv) can jump to a section. The burned-in chapter bar shows the same sections.
+chapters="$TMPDIR/$name.chapters.txt"
+python3 -I "$SKILL_DIR/scripts/chapters.py" "$out/$name.html" "$chapters"
 # Kokoro output is quiet (~-27 LUFS); normalise to the -14 LUFS streaming target.
-ffmpeg -hide_banner -loglevel error -y -i "$mp4" -af loudnorm=I=-14:TP=-1.5:LRA=11 -ar 48000 \
+ffmpeg -hide_banner -loglevel error -y -i "$mp4" -i "$chapters" -map 0 -map_chapters 1 \
+    -af loudnorm=I=-14:TP=-1.5:LRA=11 -ar 48000 \
     -c:v copy -c:a aac -b:a 192k -movflags +faststart "$final"
+rm -f "$chapters"
 duration=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$final")
 ffmpeg -hide_banner -loglevel error -y -i "$final" \
     -vf "fps=16/$duration,scale=480:-1,tile=4x4" -frames:v 1 "$out/$name.sheet.png"

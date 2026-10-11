@@ -12,5 +12,11 @@ Local patches, marked "papergit2video patch" in am.mjs:
 - Cartoon video theme (`theme: cartoon`, cartoonCss): vivid per-step colors, sticker outlines,
   sky background, speech-bubble subtitles, a robot mascot (inline SVG) and the bundled Fredoka font
   (../fonts/, SIL OFL), embedded into the page as a data URI. Bar-chart scales are hidden.
+- Chapter bar (CHAPTERS_CSS / CHAPTERS_JS, .amv-chapters in shell2): one segment per scene across
+  the top of the stage, sized by duration and labeled with the scene title, filled as the video
+  plays. It is part of the stage, so the MP4 shows it; in the player a click jumps to the scene
+  (window.__amv.jump). render(t) calls window.__amvChapters(t). Scene headings move to y=78 and
+  the blueprint frame starts at y=70 without its top ruler. scripts/chapters.py adds matching
+  MP4 chapter markers.
 - Output credit: OUTPUT_BRAND (AM_BRAND, default "Paper Explainer").
 - Default data folder: ~/.papergit2video/am. Update checks are disabled.
