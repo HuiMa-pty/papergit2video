@@ -15,6 +15,7 @@ Everything runs on your machine: no API keys and no cloud TTS, and the source ne
 |---|---|
 | **Sources** | arXiv papers, PDFs, GitHub repositories, local source code |
 | **Output** | Narrated 1080p MP4 with subtitles, plus an HTML player, or an interactive one-page explainer |
+| **Navigation** | A chapter bar across the top of every video shows each section's title and the progress. Click a section in the HTML player to replay it; the MP4 carries matching chapter markers for VLC, QuickTime, IINA and mpv |
 | **Styles** | 3Blue1Brown-style dark, Blueprint, Clean cards, Interactive page, and Cartoon for young kids |
 | **Audience** | Elementary school, middle school, high school, college, expert/researcher |
 | **Languages** | English, Mandarin Chinese, Japanese (male narrator, or a young female narrator for elementary-school videos; English terms read correctly inside Chinese) |

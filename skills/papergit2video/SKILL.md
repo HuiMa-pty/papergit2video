@@ -86,7 +86,7 @@ bash $S/render.sh page <slug>_page.md $W   # interactive page: seconds
 
 ## Step 5: Verify and report
 
-Video: read the `CONTACT_SHEET` PNG and confirm every scene shows its diagram. Report `FINAL_MP4`, duration, and scene list. Say you cannot hear the audio.
+Video: read the `CONTACT_SHEET` PNG and confirm every scene shows its diagram. Report `FINAL_MP4`, duration, and the `CHAPTER` lines (start time and title of each section). Say you cannot hear the audio. The video has a chapter bar on top: in the HTML player a click on a section jumps to it, and the MP4 has matching chapter markers.
 
 Interactive page: read the `SCREENSHOT` PNG and confirm the panels render. Report `PAGE_HTML`; it is one self-contained file that opens in any browser.
 
@@ -104,6 +104,7 @@ English terms inside Chinese lines go through the English G2P. If a term is misr
 | `hardware:` says cpu on a GPU machine | Run `setup.sh`: it installs CUDA torch and NVENC ffmpeg. |
 | `[Name]` in narration doesn't match a node label | The camera won't zoom. Copy the label exactly. |
 | Inventing illustrative numbers | Use only numbers from the source, or say "illustrative" on screen. |
+| Long scene titles | The chapter bar cuts a title after three lines, and short scenes get narrow segments. Keep `## ` titles to about 30 characters. |
 | Passive voice or long sentences | STE warnings. Rewrite as active voice and short sentences. |
 | `[caption]` warning from `check` | That beat's subtitle would wrap to 3 lines and cover the diagram. Split it into two `>` lines. |
 | Robotic voice or English voice on Chinese text | `bin/espeak-ng` is not first on PATH. Use `render.sh`, not raw `am`. |
