@@ -1,7 +1,7 @@
 {
   "name": "papergit2video",
   "description": "Turn research papers and GitHub repos into narrated explainer videos or interactive one-page explainers. Local TTS, no API keys, CUDA auto-detected.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "MIT",
   "keywords": [
     "explainer-video",
